@@ -62,7 +62,7 @@ owning app, keeping models and views thin:
 def target_attainment(rep, period):
     """Compute actual vs. target for a rep and period."""
     target = Target.objects.filter(rep=rep, period=period).aggregate(...)
-    actual = SalesRecord.objects.filter(rep=rep, period=period).aggregate(...)
+    actual = SalesEntry.objects.filter(rep=rep, period=period).aggregate(...)
     return {...}
 ```
 
@@ -75,7 +75,8 @@ A Django REST Framework API serves the mobile client:
 - Token authentication for the app
 - Session authentication for the browsable API
 - ViewSets per resource, with object-level permissions
-- Idempotent check-in endpoints to support offline retries
+- Time-based check-in/check-out endpoints (no location data); idempotent if offline
+  retries are needed
 
 ---
 
@@ -86,29 +87,35 @@ A Django REST Framework API serves the mobile client:
 | App | Responsibility | Key Models |
 |-----|----------------|-----------|
 | `core` | Shared foundations | `TimeStampedModel`, `AuditLog` |
-| `accounts` | People & hierarchy | `RepProfile`, `Territory` |
-| `outlets` | Places reps visit | `Outlet`, `Doctor`, `Pharmacy` |
+| `accounts` | People & roles | `RepProfile`, `Territory` |
+| `outlets` | Places reps visit | `State`, `Hospital`, `Doctor`, `Pharmacy` |
 | `products` | What reps sell | `Category`, `Product` |
-| `activities` | What reps do | `Visit`, `VisitProduct`, `ActivityType` |
-| `sales` | Outcomes | `SalesRecord`, `SalesLine`, `Target` |
+| `activities` | What reps do | `DoctorMeeting`, `ChemistMeeting`, `AttendanceLog` |
+| `sales` | Outcomes | `SalesEntry`, `Target` |
 | `reporting` | Insight | (aggregations over other apps) |
 | `api` | Mobile access | Serializers, ViewSets |
 
 ### 2.2 Entity Relationships
 
 ```
-User 1--1 RepProfile *--1 Territory
-RepProfile (*--1 User)         # manager relationship (self FK on RepProfile)
-Territory 1--* Outlet
-Outlet 1--* Doctor / Pharmacy
-Visit *--1 RepProfile
-Visit *--1 Outlet
-Visit 1--* VisitProduct *--1 Product
-SalesRecord *--1 RepProfile
-SalesRecord *--1 Outlet
-SalesRecord 1--* SalesLine *--1 Product
-Target *--1 RepProfile
-Target *--1 Product
+State 1--* Hospital
+Hospital 1--* Doctor
+State 1--* Pharmacy
+Hospital 0--1 Pharmacy            # locality link (optional)
+
+DoctorMeeting *--1 User (representative)
+DoctorMeeting *--1 State / Hospital / Doctor
+DoctorMeeting 1--* DoctorMeetingProduct *--1 Product
+
+ChemistMeeting *--1 User (representative)
+ChemistMeeting *--1 State / Hospital / Doctor / Pharmacy
+ChemistMeeting 1--* ChemistMeetingProduct *--1 Product
+
+SalesEntry *--1 User (representative)
+SalesEntry *--1 Hospital / Doctor / Pharmacy / Product
+Target *--1 User (representative) / Product
+
+AttendanceLog *--1 User
 ```
 
 ### 2.3 Conventions
@@ -119,41 +126,69 @@ Target *--1 Product
 - `Meta.indexes` are added for fields used in list filters and dashboards.
 - `Meta.ordering` is set where a stable default order matters.
 - Money uses `DecimalField(max_digits=15, decimal_places=2)`; never floats.
-- Coordinates use `DecimalField(max_digits=9, decimal_places=6)` for latitude and
-  longitude (portable across SQLite and MySQL; no PostGIS dependency).
+- Dates use `DateField`; timestamps use `DateTimeField` stored in UTC.
+- **No coordinate/location fields**: check-in/out is time-based only.
 
 ---
 
-## 3. Field Workflow: Check-in / Check-out
+## 3. Field Workflow: Daily Activity & Time Logging
 
-The central flow is deliberately simple and resilient.
+The central flows are deliberately simple. Check-in/out is a **time-based log only**;
+there is no GPS or location capture anywhere in the product.
+
+### 3.1 Daily activity loop
 
 ```
-Rep opens My Day
+Representative opens My Day
+      │
+      ├─► Meet Doctor   ──► state → hospital → doctor → date → products introduced
+      │
+      ├─► Meet Chemist  ──► state → hospital → doctor → pharmacy → products needed
+      │
+      └─► Check In / Check Out ──► server timestamps → duration
       │
       ▼
-Select outlet ──► Check in (capture GPS + timestamp)
-      │                 │
-      │                 ├─ online  ──► POST /activities/check-in/ ──► Visit(open)
-      │                 └─ offline ──► queue locally ──► sync later (idempotent)
-      ▼
-Log visit: purpose, notes, products, samples
+Activity appears in the user's list and in reports (scoped by role)
+```
+
+### 3.2 Check-in / check-out flow
+
+```
+User opens Check-In / Check-Out
       │
       ▼
-Check out ──► Visit(closed), duration computed
+Check In  ──► POST /activities/check-in/  ──► AttendanceLog(open, server time)
       │
       ▼
-Appears in My Day, manager views, and reports
+Work during the day
+      │
+      ▼
+Check Out ──► POST /activities/check-out/ ──► AttendanceLog(closed), duration computed
+      │
+      ▼
+Appears in My Attendance and attendance reports
 ```
 
 **Design rules**
 
-- Check-in is timestamped **server-side**; the client time is stored as a hint only.
-- GPS is optional: if unavailable, the visit is still valid but flagged `gps_missing`.
-- Geofence matching is advisory, not blocking - field conditions vary.
-- The check-in endpoint is idempotent on a client-supplied `client_uuid` so offline
-  retries cannot create duplicates.
-- A rep may have at most one open visit at a time (enforced in the service layer).
+- Check-in and check-out are timestamped **server-side** in UTC; display in local time.
+- **No coordinates, geofencing, or device location are requested or stored.**
+- A user may have at most one open attendance log at a time (enforced in the service
+  layer).
+- A check-out without an open check-in is rejected.
+- Admin may view and correct attendance; other roles see only their own.
+- If an optional mobile/offline client is added later, the check-in endpoint may accept
+  a client-supplied `client_uuid` for idempotent retries - still with no location data.
+
+### 3.3 Meeting logging rules
+
+- **Meet Doctor** captures state, hospital, doctor, date, and introduced products.
+- **Meet Chemist** captures the pharmacy near the doctor's locality, current products,
+  and the products the pharmacy needs.
+- **Update Sales** is a manual entry by Staff/Admin matched on representative, hospital,
+  doctor, pharmacy, and product.
+- Only Representatives (and Admins) may log meetings; only Staff (and Admins) may update
+  sales.
 
 ---
 
@@ -170,8 +205,10 @@ Appears in My Day, manager views, and reports
 
 ### 4.2 Indexing
 
-- Index foreign keys used in list filters (`rep`, `outlet`, `product`, `period`)
-- Composite index on visit lookup: `(rep, check_in_at)` and `(outlet, check_in_at)`
+- Index foreign keys used in list filters (`rep`, `hospital`, `doctor`, `pharmacy`,
+  `product`, `period`)
+- Composite indexes for meeting/attendance lookup: `(rep, date)` and
+  `(hospital, date)`; `(user, date)` for attendance
 - Index target/sales period fields used by attainment queries
 
 ### 4.3 Data Volume
@@ -233,16 +270,16 @@ variables, never raw hex values.
 Tab switching and the non-HTMX redirect fallback:
 
 ```html
-<a hx-get="{% url 'reporting:activity' %}?period={{ period }}"
+<a hx-get="{% url 'reporting:monthly' %}?period={{ period }}"
    hx-target="#report-content"
-   class="nav-link">Activity</a>
+   class="nav-link">Monthly</a>
 ```
 
 ```python
-class ActivityReportView(LoginRequiredMixin, View):
+class MonthlyReportView(LoginRequiredMixin, View):
     def get(self, request):
         if not request.headers.get("HX-Request"):
-            return redirect(f"{reverse('reporting:index')}?tab=activity")
+            return redirect(f"{reverse('reporting:index')}?tab=monthly")
         # ... render partial
 ```
 
@@ -264,21 +301,21 @@ Three roles, enforced server-side:
 
 | Role | Sees | Can do |
 |------|------|--------|
-| Rep | Own visits, sales, targets | Check in/out, log visits and sales |
-| Manager | Their team's data | Rep duties + review team reports |
-| Admin | All data | Manage users, outlets, products, targets |
+| Representative | Own activity and reports | Meet Doctor, Meet Chemist, check in/out |
+| Staff | Own attendance and sales reports | Check in/out, update sales |
+| Admin | All data | Everything: manage users/masters, view all reports |
 
 - Authentication: Django Auth (sessions for web, tokens for the API)
 - Authorisation: role checks in views, querysets, and DRF permissions
-- Object permissions: a rep can only read/write their own records
+- Object permissions: representatives/staff can only read/write their own records
 
-### 6.3 Privacy of Field Data
+### 6.3 Activity Data Handling
 
-GPS coordinates are personal data:
-
-- Only the owning rep and their manager chain may see precise coordinates
-- Aggregated reports may show counts/areas, not individual traces
-- Coordinates are stored with accuracy and source metadata
+- No GPS or location data exists to protect - check-in/out is time-based only.
+- Attendance and activity records are visible only to their owner unless the user is an
+  Admin.
+- Admin corrections to attendance are recorded in the audit log.
+- Aggregated reports never expose another user's individual records to non-admins.
 
 ---
 
@@ -314,10 +351,11 @@ settings/
 | Challenge | Architectural Response |
 |-----------|------------------------|
 | Small team, fast delivery | Modular monolith - one codebase, one deploy |
-| Field reps on phones | Mobile-first templates + HTMX + DRF token API |
-| Intermittent connectivity | Offline queue + idempotent check-in endpoint |
-| Proof-of-visit needs | Server timestamps + optional GPS/geofence |
-| Manager oversight | Role-based querysets scoped by territory/team |
+| Field reps on phones | Mobile-first templates + HTMX (+ optional DRF API) |
+| Time-based attendance | Server timestamps + one open log per user |
+| Doctor/chemist activity | Master data + meeting link models |
+| Manual sales from accounting | Validated sales entry matched on rep/hospital/doctor/pharmacy/product |
+| Admin oversight | Role-based querysets (own data vs all data) |
 | Fast reporting | Indexed queries + CSV export + Chart.js |
 | Keeping it simple | Explicit complexity budget in `ai_context.md` |
 
@@ -334,3 +372,5 @@ The following are intentionally excluded until a new decision record justifies t
 - Microservices or service mesh
 - Real-time websockets
 - Native mobile app (responsive web + API is sufficient)
+- **GPS / geolocation / geofencing**
+- Invoicing/accounting integration (manual entry only)

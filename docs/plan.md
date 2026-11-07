@@ -9,16 +9,22 @@
 ## 1. Goal
 
 Build a focused, mobile-first field activity and sales tracking application for
-pharmaceutical representatives. A rep should be able to check in at an outlet, log a
-visit, record sales, and see progress against target. A manager should be able to
-review team activity and sales through dashboards and reports.
+pharmaceutical representatives. A representative should be able to log doctor and chemist
+meetings, record sales, check in/out, and see their own progress. An admin should be able
+to review monthly, representative-wise, and hospital-wise activity and sales through
+dashboards and reports.
 
 **Success criteria**
 
-- A rep can complete the full field loop on a phone in under two minutes:
-  check in -> log visit + products -> check out.
-- A manager can see today's visits, MTD sales, and target attainment per rep.
-- Reports export to CSV for a chosen date range.
+- A representative can log a doctor meeting with state, hospital, doctor, date, and the
+  products introduced.
+- A representative can log a chemist meeting near a doctor, including current products
+  and the products the pharmacy needs.
+- A staff user can add a sales entry matched to representative, hospital, doctor,
+  pharmacy, and product.
+- Any user can check in and check out (time-based only, no GPS) and see their attendance.
+- An admin can see monthly, representative-wise, and hospital-wise reports with filters.
+- Reports export to CSV for the chosen filters.
 - The app runs comfortably for under 100 users on a single server.
 
 **Non-goals (MVP)**
@@ -27,6 +33,8 @@ review team activity and sales through dashboards and reports.
 - AI scoring or recommendations
 - Background job infrastructure (Celery/Redis)
 - Multi-tenant / multi-organisation support
+- Invoicing/accounting integration (sales are entered manually)
+- GPS or location capture
 - Native iOS/Android app (a responsive web app + REST API is sufficient)
 
 ---
@@ -53,26 +61,27 @@ Scaffold the project and establish the conventions everything else depends on.
 
 Model the people and hierarchy first; everything else references them.
 
-- [ ] `accounts.RepProfile` (OneToOne with `User`): phone, employee code, territory, manager
-- [ ] `accounts.Territory` (name, region, manager)
-- [ ] Role helpers: `is_admin`, `is_manager`, `is_rep` on the profile
-- [ ] Manager -> rep relationship for team-level visibility
-- [ ] Admin registration and basic rep list/detail views
+- [ ] `accounts.RepProfile` (OneToOne with `User`): phone, employee code, territory
+- [ ] `accounts.Territory` (name, region)
+- [ ] Role helpers: `is_admin`, `is_representative`, `is_staff_member`
+- [ ] Basic user list/detail views and admin registration
 
-**Done when**: A manager can be assigned reps, and visibility rules are testable.
+**Done when**: Admin, Representative, and Staff users can be created and their
+permissions are testable.
 
 ---
 
-### Phase 2 - Outlets
+### Phase 2 - Outlets & Masters
 
-Define where reps go.
+Define where reps go and the master data they reference.
 
-- [ ] `outlets.Outlet` base with type (doctor, pharmacy, hospital), address, GPS point
-- [ ] `outlets.Doctor` (speciality, clinic) and pharmacy/hospital specifics
-- [ ] Optional assignment of outlets to territories
-- [ ] CRUD views, list filters (type, territory, search), detail pages
+- [ ] `outlets.State` (name, code)
+- [ ] `outlets.Hospital` (name, state) and `outlets.Doctor` (name, speciality, hospital)
+- [ ] `outlets.Pharmacy` (name, state, locality, optional hospital link)
+- [ ] **No GPS/location fields** anywhere
+- [ ] CRUD views, list filters (state, hospital, search), detail pages
 
-**Done when**: Reps can browse outlets assigned to their territory.
+**Done when**: State -> Hospital -> Doctor -> Pharmacy masters are usable in forms.
 
 ---
 
@@ -84,7 +93,7 @@ Define what reps sell.
 - [ ] Active/inactive flag
 - [ ] CRUD views and admin inlines
 
-**Done when**: Products can be created and selected during a visit.
+**Done when**: Products can be created and selected when logging a meeting.
 
 ---
 
@@ -92,15 +101,19 @@ Define what reps sell.
 
 The core loop of the product.
 
-- [ ] `activities.Visit`: rep, outlet, check-in time, check-out time, GPS, purpose, notes
-- [ ] `activities.VisitProduct`: products discussed + samples left
-- [ ] Check-in view: captures GPS (browser geolocation), validates optional geofence
-- [ ] Check-out view: closes the visit, computes duration
-- [ ] Activity types (visit, call, meeting, training, stock check)
-- [ ] Rep "My day" view; manager team activity view
-- [ ] Offline queue: mobile submits queued check-ins via API (Phase 7)
+- [ ] `activities.DoctorMeeting`: representative, state, hospital, doctor, date, notes
+- [ ] `activities.DoctorMeetingProduct`: products introduced (through model)
+- [ ] `activities.ChemistMeeting`: representative, state, hospital, doctor, pharmacy,
+      date, current products, notes
+- [ ] `activities.ChemistMeetingProduct`: products the pharmacy needs
+- [ ] Meet Doctor views (list, create, detail) restricted to Representative/Admin
+- [ ] Meet Chemist views (list, create, detail) restricted to Representative/Admin
+- [ ] `activities.AttendanceLog`: user, date, check-in time, check-out time, duration
+- [ ] Check-in/check-out views: **time-based only, no GPS**; one open log per user
+- [ ] "My day" / attendance history view for the current user
 
-**Done when**: A rep can check in, log a visit, check out, and see it in their day view.
+**Done when**: A representative can log doctor and chemist meetings; any user can
+check in/out and see their attendance.
 
 ---
 
@@ -108,13 +121,16 @@ The core loop of the product.
 
 Connect activity to outcomes.
 
-- [ ] `sales.SalesRecord` / `Order` with lines tied to product, quantity, amount
-- [ ] Link sales to rep, outlet, and optional visit
+- [ ] `sales.SalesEntry`: representative, hospital, doctor, pharmacy, product, date,
+      quantity, amount, external reference, notes
+- [ ] Manual sales entry views restricted to Staff/Admin
+- [ ] Duplicate prevention by external invoice/reference
 - [ ] `sales.Target` per rep/product for a month or quarter
 - [ ] Actual vs. target calculations in a service layer
 - [ ] CRUD views and admin
 
-**Done when**: Target attainment is computed correctly for a rep and period.
+**Done when**: A staff user can record a sale and target attainment is computed correctly
+for a rep and period.
 
 ---
 
@@ -122,28 +138,28 @@ Connect activity to outcomes.
 
 Make the data actionable.
 
-- [ ] Dashboard KPI cards (visits today, active reps, sales MTD, target %)
-- [ ] Reports index with HTMX tabs: Activity, Sales, Targets, Reps
-- [ ] Date-range filter form shared across tabs
-- [ ] Chart.js visualisations (visits over time, sales by product, target progress)
-- [ ] CSV export per report with date filtering
+- [ ] Dashboard KPI cards (doctor meetings, chemist meetings, check-ins, sales amount)
+- [ ] Reports index with HTMX tabs: Monthly, Representatives, Hospitals, Products
+- [ ] Filter form shared across tabs (date range/month, rep, state, hospital, product)
+- [ ] Chart.js visualisations (monthly trends, rep-wise, hospital-wise, product demand)
+- [ ] CSV export per report with filtering
 - [ ] Non-HTMX direct access redirects to the full index page
 
 **Done when**: Each report renders, filters, exports, and matches the design system.
 
 ---
 
-### Phase 7 - REST API (Mobile)
+### Phase 7 - REST API (Optional Mobile)
 
-Support the field mobile client.
+Support a thin field client if required.
 
-- [ ] DRF serializers and viewsets for outlets, products, visits, sales
+- [ ] DRF serializers and viewsets for masters, meetings, sales, attendance
 - [ ] Token authentication
-- [ ] Check-in/check-out endpoints with idempotency for offline retries
-- [ ] Object-level permissions: reps only touch their own records
+- [ ] Check-in/check-out endpoints (time-only, idempotent where offline sync is needed)
+- [ ] Object-level permissions: representatives/staff only touch their own records
 - [ ] Browsable API at `/api/` and schema/docs
 
-**Done when**: A rep can check in and sync a visit through the API.
+**Done when**: A user can check in and sync activity through the API.
 
 ---
 
@@ -163,12 +179,12 @@ Support the field mobile client.
 
 - [ ] M0 - Foundation scaffold and theme
 - [ ] M1 - Users, roles, territories
-- [ ] M2 - Outlets
+- [ ] M2 - States, hospitals, doctors, pharmacies
 - [ ] M3 - Products
-- [ ] M4 - Check-in/out and visits
-- [ ] M5 - Sales and targets
+- [ ] M4 - Meet Doctor, Meet Chemist, check-in/out
+- [ ] M5 - Manual sales entry and targets
 - [ ] M6 - Reports and dashboards
-- [ ] M7 - REST API for mobile
+- [ ] M7 - REST API for mobile (optional)
 - [ ] M8 - Hardening and production deploy
 
 ---
@@ -177,10 +193,10 @@ Support the field mobile client.
 
 | Risk | Impact | Mitigation |
 |------|--------|-----------|
-| Unreliable GPS in the field | Bad check-in data | Accept manual override; log accuracy; optional geofence |
-| Offline usage | Lost visits | Client-side queue + idempotent check-in endpoint |
+| Incomplete locality data (doctor/pharmacy) | Wrong pharmacy association | Make locality matching advisory; allow admin correction |
+| Manual sales entry errors | Bad reporting | Validate FK consistency; require/encourage external reference; audit log |
 | Scope creep toward "enterprise" | Slower delivery | Enforce the complexity budget in `ai_context.md` |
-| Poor mobile UX | Low rep adoption | Mobile-first templates; test the two-minute field loop |
+| Poor mobile UX | Low adoption | Mobile-first templates; test the daily logging loop |
 | Data visibility leaks | Privacy/compliance | Server-side role checks; test permissions per role |
 | Over-building reports | Time sink | Ship CSV + a few charts first; iterate |
 
@@ -202,6 +218,7 @@ Support the field mobile client.
 - [x] `docs/ai_context.md` - canonical context (stack, decisions, conventions)
 - [x] `docs/plan.md` - this plan
 - [x] `docs/architecture.md` - detailed architecture
+- [x] `docs/field-activity.md` - daily field activity feature specification
 - [x] `docs/setup.md` - setup and installation
 - [x] `docs/testing.md` - testing and QA
 - [x] `docs/api.md` - REST API notes
@@ -212,4 +229,6 @@ Support the field mobile client.
 ## 7. Next Action
 
 Begin **Phase 0 - Foundation**: scaffold the Django project and settings split,
-then land `core.TimeStampedModel`, the base shell, and the theme files.
+then land `core.TimeStampedModel`, the base shell, and the theme files. Use
+[field-activity.md](field-activity.md) as the authoritative behaviour spec for Phases
+1-6.

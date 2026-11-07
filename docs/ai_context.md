@@ -1,7 +1,7 @@
 # OlivePharma - Project Context Documentation
 
 > **Last Updated**: November 2026  
-> **Status**: Greenfield - documentation foundation complete, implementation not started  
+> **Status**: Greenfield - docs foundation and field-activity spec complete, implementation not started  
 > **Maintained by**: Development Team
 
 > **Current state**: This repository currently contains documentation only. The
@@ -13,9 +13,14 @@
 
 ## 1. Project Overview
 
-**OlivePharma** is a field activity and sales tracking application for pharmaceutical
-representatives (medical reps / MRs). It provides check-in/check-out at field locations,
-visit and activity tracking, sales and target tracking, reporting, and dashboards.
+**OlivePharma** is a field activity and sales tracking application for a pharmaceutical
+company that acquires/manufactures medicines in bulk and supplies them to pharmacies. The
+company employs a large number of medical representatives (MRs), and the application's
+main purpose is to **log the daily activity of each worker**.
+
+It covers doctor meetings, chemist/pharmacy meetings, manual sales updates sourced from
+an external accounting system, time-based check-in/check-out (no GPS), and dashboards
+with monthly, representative-wise, and hospital-wise reporting.
 
 ### Scope & Constraints
 
@@ -24,8 +29,8 @@ visit and activity tracking, sales and target tracking, reporting, and dashboard
 | Target users | Under 100 users |
 | Deployment | Single organisation, single deployable unit |
 | Primary device | Mobile-first (reps work in the field) |
-| Secondary device | Desktop/tablet (managers and admins) |
-| Offline tolerance | Visits captured on mobile may be queued and synced |
+| Secondary device | Desktop/tablet (staff and admins) |
+| Check-in/out | Time-based log only - **no GPS/location capture** |
 | Complexity budget | Small: prefer boring, proven patterns over distributed systems |
 
 > **Guiding principle**: This is a small internal application. Optimise for clarity,
@@ -76,6 +81,7 @@ olive_pharma/
 │   ├── ai_context.md         # Canonical project context (this file)
 │   ├── plan.md               # Build plan and milestones
 │   ├── architecture.md       # Detailed architecture
+│   ├── field-activity.md     # Daily field activity feature specification
 │   ├── setup.md              # Setup and installation
 │   ├── testing.md            # Testing and QA
 │   └── api.md                # REST API documentation
@@ -111,7 +117,7 @@ olive_pharma/
         ├── accounts/         # Rep list/detail/forms
         ├── outlets/          # HCP/pharmacy list/detail/forms
         ├── products/         # Product list/detail/forms
-        ├── activities/       # Check-in/out, visit list/detail
+        ├── activities/       # Meet Doctor, Meet Chemist, check-in/out, attendance
         ├── sales/            # Orders, targets
         └── reporting/        # Reports with HTMX partials
 ```
@@ -128,19 +134,21 @@ olive_pharma/
 | `/profile/` | core | User profile |
 | `/settings/` | core:settings | Settings pages |
 | `/reps/` | accounts | Rep list, detail, targets |
-| `/outlets/` | outlets | Doctors, pharmacies, facilities |
+| `/outlets/` | outlets | States, hospitals, doctors, pharmacies |
 | `/products/` | products | Product catalog |
-| `/activities/` | activities | Check-in/out, visits, field activity |
-| `/sales/` | sales | Orders, sales records, targets |
-| `/reports/` | reporting | Reports (index, activity, sales, targets) |
+| `/activities/` | activities | Meet Doctor, Meet Chemist, check-in/out, attendance |
+| `/sales/` | sales | Manual sales entry and targets |
+| `/reports/` | reporting | Reports (index, monthly, representatives, hospitals) |
 | `/api/` | api | REST API endpoints for the mobile app |
 
 ### Namespace Usage
 
-- Use `reporting:index`, `reporting:activity`, etc. (namespace required)
-- Use `activities:visit_list`, `activities:check_in`, etc.
-- Use `outlets:outlet_list`, `outlets:doctor_list`, etc.
-- Use `sales:order_list`, `sales:target_list`, etc.
+- Use `reporting:index`, `reporting:monthly`, `reporting:representatives`, etc.
+- Use `activities:meet_doctor`, `activities:meet_chemist`, `activities:check_in`,
+  `activities:check_out`, `activities:attendance`
+- Use `outlets:state_list`, `outlets:hospital_list`, `outlets:doctor_list`,
+  `outlets:pharmacy_list`
+- Use `sales:entry_list`, `sales:entry_create`, `sales:target_list`
 - Use `core:settings` for settings pages
 
 ---
@@ -148,32 +156,39 @@ olive_pharma/
 ## 4. Key Features
 
 ### 4.1 Dashboard
-- KPI cards with vertical-accent styling (visits today, active reps, sales MTD, target %)
-- Recent visits table
-- Sales vs. target progress
-- Period filters (today, week, month, quarter)
+- KPI cards with vertical-accent styling (doctor meetings, chemist meetings, check-ins,
+  sales amount)
+- Recent activity table (doctor and chemist meetings)
+- Monthly and month-over-month trends
+- Representative-wise and hospital-wise breakdowns
+- Filters: date range/month, representative, state, hospital, product
 
 ### 4.2 Check-in / Check-out
-- Rep checks in at an outlet (doctor, pharmacy, hospital) with GPS coordinates
-- Server records timestamp, rep, outlet, and optional geofence match
-- Notes, visit purpose, products discussed
-- Check-out closes the visit and stores duration
-- Offline queue on mobile syncs queued visits via the API
+- **Time-based log only - no GPS or location capture**
+- User clicks Check In/Check Out; the server records timestamps
+- Duration computed on check-out
+- One open check-in per user at a time
+- Attendance history and reports per user
 
 ### 4.3 Field Activity Tracking
-- Visit log per rep, per outlet, per day
-- Activity types (visit, call, meeting, training, stock check)
-- Managers can review team activity by territory and period
+- **Meet Doctor**: log state, hospital, doctor, date, and products introduced
+- **Meet Chemist**: log the pharmacy near the doctor's locality, current products, and
+  the products the pharmacy needs
+- Activity list per representative and per day
+- Admin can review all activity; users see their own
 
 ### 4.4 Sales & Targets
+- **Update Sales**: manual entry of accounting data, matched by representative,
+  hospital, doctor, pharmacy, and product
 - Product catalog and categories
-- Sales/order records tied to outlets and reps
 - Monthly/quarterly targets per rep and product
 - Actual vs. target progress
 
 ### 4.5 Reporting Module
-- HTMX-powered tab switching (Activity, Sales, Targets, Reps)
-- CSV export with date filtering
+- HTMX-powered tab switching (Monthly, Representatives, Hospitals, Products)
+- Monthly reports, trends, representative-wise and hospital-wise data
+- Filters shared across tabs (date range, rep, state, hospital, product)
+- CSV export with filtering
 - Direct URL access redirects to the full index page
 - Chart.js visualisation
 
@@ -229,12 +244,14 @@ olive_pharma/
 ### 5.6 Security
 - CSRF protection stays enabled; never use `@csrf_exempt` without documented reason.
 - Role checks are enforced server-side, not only by hiding UI.
-- GPS coordinates are personal data: expose them only to the owning rep and their manager chain.
+- **No GPS or location data is collected, requested, or stored anywhere.**
+- Activity and attendance records are visible only to their owner unless the user is an Admin.
 - Never commit `.env`, secrets, database files, or credentials.
 
 ### 5.7 Testing
 - Every app has tests in `tests.py` (or a `tests/` package as it grows).
-- Test models, permissions, and critical flows (check-in/out, targets, reports).
+- Test models, permissions, and critical flows (doctor/chemist meetings, sales entry,
+  check-in/out, reports).
 - Run `python manage.py test` and `python manage.py check` before committing.
 
 ---
@@ -249,10 +266,11 @@ olive_pharma/
 | D4 | SQLite for dev, MySQL for production | Zero-setup dev; production parity via PyMySQL |
 | D5 | No Wagtail CMS | No public-content requirement |
 | D6 | No Celery/Redis in MVP | Exports and dashboards are synchronous at this scale |
-| D7 | DRF token API for mobile | Reps need a thin mobile client; tokens are simple |
-| D8 | Role-based access (admin, manager, rep) | Matches the pharma field hierarchy; simpler than per-module toggles |
-| D9 | GPS captured on check-in, geofence optional | Proof of visit; allows tolerant matching without blocking offline work |
+| D7 | DRF token API for mobile | A thin mobile client may be added; tokens are simple |
+| D8 | Role-based access (Admin, Representative, Staff) | Matches the operational roles; enforced server-side |
+| D9 | Check-in/out is a time-based log only (no GPS) | Spec requires time logs, not location; avoids privacy complexity |
 | D10 | `TimeStampedModel` for shared timestamps | Consistency across all domain models |
+| D11 | Sales are entered manually from the external accounting app | Accounting is out of scope; staff match rep/hospital/doctor/pharmacy/product |
 
 ---
 
@@ -267,10 +285,13 @@ documented decision:
 4. **Design system**: "Trusted Innovator" colour tokens and the two-row shell layout.
 5. **URL namespaces**: existing `app_name` values and named routes.
 6. **Auth model**: Django's built-in user plus role/profile extension (no custom user swap).
-7. **Complexity budget**: do not introduce Wagtail, Celery, Redis, microservices,
+7. **Role model**: Admin, Representative, and Staff with the permissions in
+   [field-activity.md](field-activity.md#6-permissions-matrix).
+8. **No GPS/location capture**: check-in/check-out is a time-based log only.
+9. **Complexity budget**: do not introduce Wagtail, Celery, Redis, microservices,
    or multi-tenancy without a new ADR in Section 6.
-8. **Data ownership**: reps see their own data; managers see their team; admins see all.
-9. **No secrets in the repository**: `.env`, credentials, and DB files stay out of git.
+10. **Data ownership**: representatives and staff see their own data; admins see all.
+11. **No secrets in the repository**: `.env`, credentials, and DB files stay out of git.
 
 ---
 
@@ -299,6 +320,7 @@ python manage.py test
 
 - [Build Plan](plan.md) - Phased delivery plan and milestones
 - [Architecture Overview](architecture.md) - Detailed architectural patterns
+- [Field Activity Feature](field-activity.md) - Daily activity, roles, and permissions
 - [Setup and Installation](setup.md) - Getting started guide
 - [Testing and QA](testing.md) - Automated and E2E testing
 - [REST API Documentation](api.md) - API endpoints and usage
@@ -318,6 +340,19 @@ python manage.py test
 ---
 
 ## 11. Change Log
+
+### November 2026 - Field Activity Feature Specification
+- Added `docs/field-activity.md`: Meet Doctor, Meet Chemist, Update Sales,
+  time-only Check-In/Check-Out, dashboards, and the Admin/Representative/Staff
+  permission model.
+- Reconciled the canonical context with the feature spec:
+  - Check-in/out is **time-based only** (removed GPS/geofence); decision D9 updated.
+  - Roles are **Admin, Representative, Staff** (replaced the earlier manager/rep model);
+    decision D8 updated.
+  - Sales are **manually entered** from the external accounting application; decision
+    D11 added.
+  - Dashboard/reporting adjusted to monthly, representative-wise, and hospital-wise views.
+- **Task checkpoint (end)**: feature specification complete; application code not started.
 
 ### November 2026 - Documentation Foundation
 - Created `docs/ai_context.md`, `docs/plan.md`, `docs/architecture.md`.
