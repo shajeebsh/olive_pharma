@@ -108,7 +108,13 @@ python manage.py test
 
 ## 9. Deploying to Render
 
-The repository includes `render.yaml` and `build.sh`. Create a Blueprint from the repo;
-Render provisions PostgreSQL and sets `DATABASE_URL`. The build script installs
-dependencies, collects static files, and applies migrations. `gunicorn config.wsgi:application`
-serves the app, and `/health/` is the health-check path.
+The repository includes `render.yaml`, `build.sh`, and `start.sh`. Create a Blueprint from
+the repo; Render provisions PostgreSQL and sets `DATABASE_URL`. The build script installs
+dependencies, collects static files, and applies migrations. The start script runs
+`collectstatic` again before Gunicorn to guarantee the WhiteNoise manifest exists, then
+serves via `gunicorn config.wsgi:application`. `/health/` is the health-check path.
+
+Render is pinned to Python 3.11.11 via the `PYTHON_VERSION` env var and
+`.python-version` file. Do not use `pythonVersion` in `render.yaml`; Render ignores it.
+If you created the service manually, set `PYTHON_VERSION=3.11.11` in the dashboard and
+use `./start.sh` as the start command.

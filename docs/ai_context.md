@@ -76,6 +76,8 @@ olive_pharma/
 ├── requirements.txt          # Python dependencies
 ├── render.yaml               # Render Blueprint (web service + PostgreSQL)
 ├── build.sh                  # Render build: install, collectstatic, migrate
+├── start.sh                  # Render start: collectstatic, then gunicorn
+├── .python-version           # Pins Render to Python 3.11.11
 ├── .env.example              # Environment template (no secrets)
 ├── db.sqlite3                # Development database (git-ignored)
 │
@@ -367,6 +369,13 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 ---
 
 ## 11. Change Log
+
+### November 2026 - Deployment Fixes
+- Pinned Render to Python 3.11.11 via `PYTHON_VERSION` and `.python-version`
+  (`pythonVersion` in `render.yaml` is not a Render setting). This avoids source builds
+  for `pillow-heif`/Pillow on Python 3.14.
+- Added `start.sh` so `collectstatic` runs at boot before Gunicorn, guaranteeing the
+  WhiteNoise manifest exists even if build output is missing.
 
 ### November 2026 - Implementation (Phases 0-6)
 - Implemented Django project with `config.settings` split (base/dev/prod).
