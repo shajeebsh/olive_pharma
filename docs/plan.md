@@ -1,7 +1,7 @@
 # OlivePharma - Build Plan
 
-> **Last Updated**: November 2026  
-> **Status**: Planning complete - implementation not started  
+> **Last Updated**: November 2026
+> **Status**: Phases 0-6 implemented; optional API (Phase 7) and hardening (Phase 8) remain
 > **Owner**: Development Team
 
 ---
@@ -16,7 +16,7 @@ dashboards and reports.
 
 **Success criteria**
 
-- A representative can log a doctor meeting with state, hospital, doctor, date, and the
+- A representative can log a doctor meeting with region, hospital, doctor, date, and the
   products introduced.
 - A representative can log a chemist meeting near a doctor, including current products
   and the products the pharmacy needs.
@@ -29,131 +29,115 @@ dashboards and reports.
 
 **Non-goals (MVP)**
 
-- Public marketing/CMS pages
+- Public marketing/CMS pages required for the core workflow (Wagtail is optional)
 - AI scoring or recommendations
 - Background job infrastructure (Celery/Redis)
 - Multi-tenant / multi-organisation support
 - Invoicing/accounting integration (sales are entered manually)
 - GPS or location capture
-- Native iOS/Android app (a responsive web app + REST API is sufficient)
+- Native iOS/Android app (a responsive web app is sufficient for now)
 
 ---
 
 ## 2. Delivery Phases
 
-### Phase 0 - Foundation
+### Phase 0 - Foundation ✅
 
-Scaffold the project and establish the conventions everything else depends on.
+- [x] Create Django project with `config/settings/` split (`base`, `dev`, `prod`)
+- [x] Add `requirements.txt` (Django 5.0, Wagtail 6.0, psycopg2, dj-database-url,
+      python-decouple, gunicorn, whitenoise, weasyprint, Pillow)
+- [x] Configure SQLite (dev) and PostgreSQL (prod) via `DATABASE_URL`
+- [x] Set up `core` app with `TimeStampedModel`, `AuditLog`, masters, managers
+- [x] Add two-row shell `base.html` and the "Trusted Innovator" theme
+- [x] Configure static/media, auth redirects, Django admin, health check
+- [x] Add `.env.example` (no secrets committed)
 
-- [ ] Create Django project `olivepharma` with `settings/` split (base/dev/production)
-- [ ] Add `requirements.txt` (Django, DRF, PyMySQL, django-environ, gunicorn)
-- [ ] Configure SQLite (dev) and MySQL (prod) via `DATABASE_URL`
-- [ ] Set up `core` app with `TimeStampedModel` and `AuditLog`
-- [ ] Add two-row shell `base.html` and the "Trusted Innovator" theme files
-- [ ] Configure static/media, auth redirects, and Django admin
-- [ ] Add `.env.example` (no secrets committed)
-
-**Done when**: `python manage.py check` passes and the shell renders a login page.
-
----
-
-### Phase 1 - Identity & Organisation
-
-Model the people and hierarchy first; everything else references them.
-
-- [ ] `accounts.RepProfile` (OneToOne with `User`): phone, employee code, territory
-- [ ] `accounts.Territory` (name, region)
-- [ ] Role helpers: `is_admin`, `is_representative`, `is_staff_member`
-- [ ] Basic user list/detail views and admin registration
-
-**Done when**: Admin, Representative, and Staff users can be created and their
-permissions are testable.
+**Done when**: `python manage.py check` passes and the shell renders a login page. ✅
 
 ---
 
-### Phase 2 - Outlets & Masters
+### Phase 1 - Identity & Organisation ✅
 
-Define where reps go and the master data they reference.
+- [x] `accounts.UserProfile` (OneToOne with `User`): role, phone, employee code, region
+- [x] Role helpers: `is_admin`, `is_representative`, `is_staff_member`
+- [x] Auto-create profile via signal; profile view and admin registration
+- [x] Redirects and role-aware navigation registry
 
-- [ ] `outlets.State` (name, code)
-- [ ] `outlets.Hospital` (name, state) and `outlets.Doctor` (name, speciality, hospital)
-- [ ] `outlets.Pharmacy` (name, state, locality, optional hospital link)
-- [ ] **No GPS/location fields** anywhere
-- [ ] CRUD views, list filters (state, hospital, search), detail pages
-
-**Done when**: State -> Hospital -> Doctor -> Pharmacy masters are usable in forms.
+**Done when**: Admin, Representative, and Staff users behave differently and permissions
+are tested. ✅
 
 ---
 
-### Phase 3 - Products
+### Phase 2 - Outlets & Masters ✅
 
-Define what reps sell.
+- [x] `core.Region` (name, code)
+- [x] `core.Hospital` (name, region, city, address)
+- [x] `core.Doctor` (name, hospital, speciality, phone)
+- [x] `core.Pharmacy` (name, region, optional hospital, locality, phone)
+- [x] **No GPS/location fields** anywhere
+- [x] Django admin CRUD for all masters; used by visit/sales forms
 
-- [ ] `products.Category` and `products.Product` (name, SKU, form, strength, price)
-- [ ] Active/inactive flag
-- [ ] CRUD views and admin inlines
-
-**Done when**: Products can be created and selected when logging a meeting.
+**Done when**: Region -> Hospital -> Doctor -> Pharmacy masters are usable in forms. ✅
 
 ---
 
-### Phase 4 - Field Activity & Check-in/out
+### Phase 3 - Products ✅
 
-The core loop of the product.
+- [x] `core.Product` (name, SKU, form, strength, active flag)
+- [x] Django admin CRUD and active-product filtering in forms
 
-- [ ] `activities.DoctorMeeting`: representative, state, hospital, doctor, date, notes
-- [ ] `activities.DoctorMeetingProduct`: products introduced (through model)
-- [ ] `activities.ChemistMeeting`: representative, state, hospital, doctor, pharmacy,
-      date, current products, notes
-- [ ] `activities.ChemistMeetingProduct`: products the pharmacy needs
-- [ ] Meet Doctor views (list, create, detail) restricted to Representative/Admin
-- [ ] Meet Chemist views (list, create, detail) restricted to Representative/Admin
-- [ ] `activities.AttendanceLog`: user, date, check-in time, check-out time, duration
-- [ ] Check-in/check-out views: **time-based only, no GPS**; one open log per user
-- [ ] "My day" / attendance history view for the current user
+**Done when**: Products can be created and selected when logging a meeting. ✅
+
+---
+
+### Phase 4 - Field Activity & Check-in/out ✅
+
+- [x] `visits.DoctorVisit`: rep, region, hospital, doctor, date, products introduced, notes
+- [x] `visits.ChemistVisit`: rep, region, hospital, doctor context, pharmacy, date,
+      current products, products needed, notes
+- [x] Meet Doctor views (list, create) restricted to Representative/Admin
+- [x] Meet Chemist views (list, create) restricted to Representative/Admin
+- [x] `checkin.CheckInOut`: user, date, check-in time, check-out time, notes, duration
+- [x] Check-in/check-out views: time-based only; one record per user per day
+- [x] Attendance history view for the current user
+- [x] Audit signals for doctor and chemist visits
 
 **Done when**: A representative can log doctor and chemist meetings; any user can
-check in/out and see their attendance.
+check in/out and see their attendance. ✅
 
 ---
 
-### Phase 5 - Sales & Targets
+### Phase 5 - Sales & Targets ✅
 
-Connect activity to outcomes.
-
-- [ ] `sales.SalesEntry`: representative, hospital, doctor, pharmacy, product, date,
-      quantity, amount, external reference, notes
-- [ ] Manual sales entry views restricted to Staff/Admin
-- [ ] Duplicate prevention by external invoice/reference
-- [ ] `sales.Target` per rep/product for a month or quarter
-- [ ] Actual vs. target calculations in a service layer
-- [ ] CRUD views and admin
+- [x] `sales.SalesLog`: representative, region, hospital, doctor, pharmacy, product, date,
+      quantity, amount, external reference, notes, entered_by
+- [x] Manual sales entry views restricted to Staff/Admin
+- [x] Duplicate prevention by external reference per representative
+- [x] `sales.Target` per rep/product for a month or quarter
+- [x] Actual vs. target calculations in `services.target_attainment()`
+- [x] List/create views, admin, and audit signal
 
 **Done when**: A staff user can record a sale and target attainment is computed correctly
-for a rep and period.
+for a rep and period. ✅
 
 ---
 
-### Phase 6 - Reporting & Dashboards
+### Phase 6 - Reporting & Dashboards ✅
 
-Make the data actionable.
+- [x] Dashboard KPI cards (doctor visits, chemist visits, check-ins, sales amount)
+- [x] Reports tabs: Monthly, Representatives, Hospitals, Products
+- [x] Shared filter form (date range, representative, hospital, product)
+- [x] Chart.js visualisations (monthly/rep/hospital/product)
+- [x] CSV export per report with filtering
+- [x] Server-rendered tabs (no HTMX dependency)
 
-- [ ] Dashboard KPI cards (doctor meetings, chemist meetings, check-ins, sales amount)
-- [ ] Reports index with HTMX tabs: Monthly, Representatives, Hospitals, Products
-- [ ] Filter form shared across tabs (date range/month, rep, state, hospital, product)
-- [ ] Chart.js visualisations (monthly trends, rep-wise, hospital-wise, product demand)
-- [ ] CSV export per report with filtering
-- [ ] Non-HTMX direct access redirects to the full index page
-
-**Done when**: Each report renders, filters, exports, and matches the design system.
+**Done when**: Each report renders, filters, exports, and matches the design system. ✅
 
 ---
 
 ### Phase 7 - REST API (Optional Mobile)
 
-Support a thin field client if required.
-
-- [ ] DRF serializers and viewsets for masters, meetings, sales, attendance
+- [ ] Add DRF serializers and viewsets for masters, visits, sales, attendance
 - [ ] Token authentication
 - [ ] Check-in/check-out endpoints (time-only, idempotent where offline sync is needed)
 - [ ] Object-level permissions: representatives/staff only touch their own records
@@ -163,13 +147,14 @@ Support a thin field client if required.
 
 ---
 
-### Phase 8 - Hardening & Deployment
+### Phase 8 - Hardening & Deployment (partial)
 
-- [ ] Test coverage for models, permissions, check-in/out, targets, reports
-- [ ] Production settings: `DEBUG=False`, `ALLOWED_HOSTS`, secure cookies, HSTS
-- [ ] `collectstatic` and static serving strategy
-- [ ] Docker image + Gunicorn
+- [x] Test coverage for scoped managers, permissions, check-in/out, sales, targets, reports
+- [x] Production settings: `DEBUG=False`, secure cookies, HSTS, allowed hosts
+- [x] `collectstatic` and WhiteNoise static serving
+- [x] Render Blueprint + Gunicorn (`render.yaml`, `build.sh`)
 - [ ] Backup and migration runbook
+- [ ] Optional Docker image
 
 **Done when**: The app deploys, passes tests, and handles a realistic data volume.
 
@@ -177,15 +162,15 @@ Support a thin field client if required.
 
 ## 3. Milestone Checklist
 
-- [ ] M0 - Foundation scaffold and theme
-- [ ] M1 - Users, roles, territories
-- [ ] M2 - States, hospitals, doctors, pharmacies
-- [ ] M3 - Products
-- [ ] M4 - Meet Doctor, Meet Chemist, check-in/out
-- [ ] M5 - Manual sales entry and targets
-- [ ] M6 - Reports and dashboards
+- [x] M0 - Foundation scaffold and theme
+- [x] M1 - Users and roles
+- [x] M2 - Regions, hospitals, doctors, pharmacies
+- [x] M3 - Products
+- [x] M4 - Meet Doctor, Meet Chemist, check-in/out
+- [x] M5 - Manual sales entry and targets
+- [x] M6 - Reports and dashboards
 - [ ] M7 - REST API for mobile (optional)
-- [ ] M8 - Hardening and production deploy
+- [ ] M8 - Hardening and production deploy (Render configured; runbook pending)
 
 ---
 
@@ -194,22 +179,22 @@ Support a thin field client if required.
 | Risk | Impact | Mitigation |
 |------|--------|-----------|
 | Incomplete locality data (doctor/pharmacy) | Wrong pharmacy association | Make locality matching advisory; allow admin correction |
-| Manual sales entry errors | Bad reporting | Validate FK consistency; require/encourage external reference; audit log |
+| Manual sales entry errors | Bad reporting | Validate FK consistency; duplicate-reference protection; audit log |
 | Scope creep toward "enterprise" | Slower delivery | Enforce the complexity budget in `ai_context.md` |
 | Poor mobile UX | Low adoption | Mobile-first templates; test the daily logging loop |
-| Data visibility leaks | Privacy/compliance | Server-side role checks; test permissions per role |
+| Data visibility leaks | Privacy/compliance | Server-side role checks; scoped managers; tests per role |
 | Over-building reports | Time sink | Ship CSV + a few charts first; iterate |
 
 ---
 
 ## 5. Definition of Done (per feature)
 
-- [ ] Model, migration, admin, and tests exist
-- [ ] Views enforce authentication and role visibility
-- [ ] URL is namespaced and template extends `base.html`
-- [ ] Uses theme tokens (no hard-coded colours)
-- [ ] `python manage.py check` and `python manage.py test` pass
-- [ ] Docs updated when a foundational decision changes
+- [x] Model, migration, admin, and tests exist
+- [x] Views enforce authentication and role visibility
+- [x] URL is namespaced and template extends `base.html`
+- [x] Uses theme tokens (no hard-coded colours in templates)
+- [x] `python manage.py check` and `python manage.py test` pass
+- [x] Docs updated when a foundational decision changes
 
 ---
 
@@ -219,16 +204,15 @@ Support a thin field client if required.
 - [x] `docs/plan.md` - this plan
 - [x] `docs/architecture.md` - detailed architecture
 - [x] `docs/field-activity.md` - daily field activity feature specification
-- [x] `docs/setup.md` - setup and installation
+- [x] `docs/setup.md` - setup, configuration, and Render deployment
 - [x] `docs/testing.md` - testing and QA
-- [x] `docs/api.md` - REST API notes
-- [x] `README.md` - quick links mirroring OliveCRM style
+- [x] `docs/api.md` - REST API notes (optional future work)
+- [x] `README.md` - project overview and quick links
 
 ---
 
 ## 7. Next Action
 
-Begin **Phase 0 - Foundation**: scaffold the Django project and settings split,
-then land `core.TimeStampedModel`, the base shell, and the theme files. Use
-[field-activity.md](field-activity.md) as the authoritative behaviour spec for Phases
-1-6.
+Optionally add the DRF API (Phase 7) for a mobile client, then complete the Phase 8
+runbook (backups, restore drill, deployment checklist). Re-run `manage.py check`,
+`manage.py test`, and `collectstatic` before each deploy.

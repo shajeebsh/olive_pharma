@@ -1,0 +1,8 @@
+<div class="kpi-card kpi-{{ accent|default:'blue' }}">
+    <div class="kpi-icon"><i class="bi {{ icon|default:'bi-graph-up' }}"></i></div>
+    <div class="kpi-content">
+        <span class="kpi-label">{{ label }}</span>
+        <span class="kpi-value">{{ value }}</span>
+        {% if meta %}<span class="kpi-meta">{{ meta }}</span>{% endif %}
+    </div>
+</div>
