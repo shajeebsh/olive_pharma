@@ -3,11 +3,12 @@ services:
     name: olive-pharma
     runtime: python
     plan: free
-    pythonVersion: "3.11.1"
     buildCommand: "./build.sh"
     startCommand: "gunicorn config.wsgi:application"
     healthCheckPath: /health/
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.11"
       - key: DJANGO_SETTINGS_MODULE
         value: config.settings.prod
       - key: SECRET_KEY

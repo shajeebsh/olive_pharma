@@ -21,6 +21,29 @@ python manage.py test checkin
 python manage.py test dashboard
 ```
 
+### Demo logins for manual testing
+
+Seed the local database once, then start the dev server:
+
+```bash
+python manage.py migrate
+python manage.py seed_demo
+python manage.py runserver
+```
+
+Open http://localhost:8000/ and sign in with any of these accounts. The password is
+`password123` for all three.
+
+| Username | Role | What to test |
+|----------|------|--------------|
+| `admin` | Admin | Full access: masters, reports, sales, targets, users |
+| `rep` | Representative | Meet Doctor/Chemist, own check-in/out, own visits/sales/reports |
+| `staff` | Staff | Sales entry, targets read, check-in/out, company-wide reports |
+
+The seed command is idempotent and also creates a demo region, hospital, doctor, pharmacy,
+three products, one doctor visit, one chemist visit, one sale, one target, and a check-in.
+Only use these credentials for local development; never seed them in production.
+
 ## 2. Test Coverage
 
 The current suite covers:
