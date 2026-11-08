@@ -374,8 +374,10 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 - Pinned Render to Python 3.11.11 via `PYTHON_VERSION` and `.python-version`
   (`pythonVersion` in `render.yaml` is not a Render setting). This avoids source builds
   for `pillow-heif`/Pillow on Python 3.14.
-- Added `start.sh` so `collectstatic` runs at boot before Gunicorn, guaranteeing the
-  WhiteNoise manifest exists even if build output is missing.
+- Added `start.sh` so `collectstatic` runs at boot before Gunicorn.
+- Production now uses `whitenoise.storage.CompressedStaticFilesStorage` with
+  `WHITENOISE_USE_FINDERS = True`, so missing `staticfiles/` output or manifest entries
+  cannot cause a 500 on template render.
 
 ### November 2026 - Implementation (Phases 0-6)
 - Implemented Django project with `config.settings` split (base/dev/prod).
