@@ -9,6 +9,7 @@ Built with **Django 5.0**, **Bootstrap 5**, and **HTMX** for teams of under 100 
 
 - [🚀 Setup & Installation](docs/setup.md)
 - [🏗️ Architecture Overview](docs/architecture.md)
+- [📍 Field Activity Feature](docs/field-activity.md)
 - [🧪 Testing & QA](docs/testing.md)
 - [📡 REST API Documentation](docs/api.md)
 - [📝 AI Context Documentation](docs/ai_context.md)
@@ -18,19 +19,20 @@ Built with **Django 5.0**, **Bootstrap 5**, and **HTMX** for teams of under 100 
 
 ## Project Overview
 
-**OlivePharma** helps field reps check in and out at doctors, pharmacies, and hospitals,
-log visits and products discussed, record sales, and track progress against targets.
-Managers get dashboards and reports for their team. A small, focused modular monolith -
-no CMS, no background workers, no unnecessary infrastructure.
+**OlivePharma** helps medical representatives log their daily field activity: meeting
+doctors, meeting nearby chemists, recording manual sales from the accounting system, and
+checking in/out with a **time-based log (no GPS)**. Admins get monthly,
+representative-wise, and hospital-wise dashboards and reports. A small, focused modular
+monolith - no CMS, no background workers, no unnecessary infrastructure.
 
 ### Key Modules
-- **Accounts**: Users, reps, managers, territories
-- **Outlets**: Doctors, pharmacies, hospitals
+- **Accounts**: Users, roles (Admin, Representative, Staff), territories
+- **Outlets**: States, hospitals, doctors, pharmacies
 - **Products**: Product catalog and categories
-- **Activities**: Check-in/out, visits, field activity
-- **Sales**: Sales records and targets
+- **Activities**: Meet Doctor, Meet Chemist, check-in/out, attendance
+- **Sales**: Manual sales entry and targets
 - **Reporting**: Dashboards, reports, and CSV export
-- **API**: DRF token API for the mobile client
+- **API**: DRF token API for an optional mobile client
 
 ---
 
@@ -71,6 +73,7 @@ All project context lives in [`docs/`](docs/):
 | [ai_context.md](docs/ai_context.md) | Canonical context: stack, decisions, conventions |
 | [plan.md](docs/plan.md) | Phased build plan and milestones |
 | [architecture.md](docs/architecture.md) | Architecture patterns and domain model |
+| [field-activity.md](docs/field-activity.md) | Daily field activity feature specification |
 | [setup.md](docs/setup.md) | Setup and installation |
 | [testing.md](docs/testing.md) | Testing and QA |
 | [api.md](docs/api.md) | REST API usage |
