@@ -30,7 +30,9 @@ def startup_tasks_enabled():
     override = os.environ.get("RUN_STARTUP_TASKS")
     if override is not None:
         return override.strip().lower() not in _FALSY
-    return os.environ.get("RENDER", "").strip().lower() in _TRUTHY
+    if os.environ.get("RENDER", "").strip().lower() in _TRUTHY:
+        return True
+    return os.environ.get("DJANGO_SETTINGS_MODULE", "").endswith(".prod")
 
 
 def run_startup_tasks(lock_path=None):

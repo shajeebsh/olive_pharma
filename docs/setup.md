@@ -226,11 +226,11 @@ If no superuser is created:
 ### 9.5 WSGI startup safety net
 
 Even if the Render Build/Start commands are still set to the old values, the WSGI entry
-point (`config/wsgi.py`) calls `core.bootstrap.run_startup_tasks()` when Render sets
-`RENDER=true`. That runs `migrate` and `ensure_superuser` once per container before the
-first request, with a file lock so Gunicorn workers do not repeat it. This fixes a
-missing session/auth table (a 500 on login) and provisions the admin without editing the
-Render dashboard.
+point (`config/wsgi.py`) calls `core.bootstrap.run_startup_tasks()` when production
+settings are active or Render sets `RENDER=true`. That runs `migrate` and
+`ensure_superuser` once per container before the first request, with a file lock so
+Gunicorn workers do not repeat it. This fixes a missing session/auth table (a 500 on
+login) and provisions the admin without editing the Render dashboard.
 
 - The log shows `Startup tasks: applying migrations` and `Startup tasks: complete`.
 - Set `RUN_STARTUP_TASKS=0` to disable this safety net; `start.sh` sets it after running

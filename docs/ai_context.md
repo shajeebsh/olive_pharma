@@ -392,12 +392,12 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 - Expanded `docs/setup.md` with the full local/Render environment variable table, exact
   Render Build/Start commands, step-by-step `build.sh`/`start.sh` behavior, superuser
   provisioning/troubleshooting, and WhiteNoise static-file notes.
-- Added `core.bootstrap.run_startup_tasks()`, called from `config/wsgi.py` when Render
-  sets `RENDER=true`. It runs `migrate` and `ensure_superuser` once per container before
-  the first request, so a stale Render Build/Start command cannot leave the database
-  unmigrated (login 500) or the admin unprovisioned. `start.sh` sets
-  `RUN_STARTUP_TASKS=0` after doing the work itself; `RUN_STARTUP_TASKS=1` enables it
-  elsewhere.
+- Added `core.bootstrap.run_startup_tasks()`, called from `config/wsgi.py` under
+  production settings (or when Render sets `RENDER=true`). It runs `migrate` and
+  `ensure_superuser` once per container before the first request, so a stale Render
+  Build/Start command cannot leave the database unmigrated (login 500) or the admin
+  unprovisioned. `start.sh` sets `RUN_STARTUP_TASKS=0` after doing the work itself;
+  `RUN_STARTUP_TASKS=1` enables it elsewhere.
 - `/health/` now verifies the database connection and that `django_migrations` is
   populated, returning `503` with `"migrations": "missing"` instead of a false `ok`.
 

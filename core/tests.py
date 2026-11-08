@@ -78,6 +78,14 @@ class StartupBootstrapTests(TestCase):
         with patch.dict(os.environ, {"RENDER": "true"}, clear=True):
             self.assertTrue(startup_tasks_enabled())
 
+    def test_enabled_with_production_settings(self):
+        with patch.dict(
+            os.environ,
+            {"DJANGO_SETTINGS_MODULE": "config.settings.prod"},
+            clear=True,
+        ):
+            self.assertTrue(startup_tasks_enabled())
+
     def test_override_disables_startup_tasks(self):
         with patch.dict(
             os.environ,
