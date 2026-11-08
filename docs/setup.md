@@ -110,9 +110,9 @@ python manage.py test
 
 The repository includes `render.yaml`, `build.sh`, and `start.sh`. Create a Blueprint from
 the repo; Render provisions PostgreSQL and sets `DATABASE_URL`. The build script installs
-dependencies, collects static files, and applies migrations. The start script runs
-`collectstatic` again before Gunicorn, then serves via `gunicorn config.wsgi:application`.
-`/health/` is the health-check path.
+dependencies, collects static files, and applies migrations. The start script re-runs
+`migrate` and `collectstatic` before Gunicorn, then serves via
+`gunicorn config.wsgi:application`. `/health/` is the health-check path.
 
 Production uses WhiteNoise with `WHITENOISE_USE_FINDERS = True` and
 `CompressedStaticFilesStorage` (no manifest), so static files are served even if the
