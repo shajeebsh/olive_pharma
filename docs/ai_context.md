@@ -75,7 +75,7 @@ olive_pharma/
 ├── manage.py                 # Django management script (config.settings.dev)
 ├── requirements.txt          # Python dependencies
 ├── render.yaml               # Render Blueprint (web service + PostgreSQL)
-├── build.sh                  # Render build: install, collectstatic, migrate
+├── build.sh                  # Render build: install, collectstatic, migrate, superuser
 ├── start.sh                  # Render start: migrate, superuser, collectstatic, gunicorn
 ├── .python-version           # Pins Render to Python 3.11.11
 ├── .env.example              # Environment template (no secrets)
@@ -334,6 +334,9 @@ python manage.py migrate
 # Create migrations after model changes
 python manage.py makemigrations
 
+# Provision the deployment admin from DJANGO_SUPERUSER_* env vars
+python manage.py ensure_superuser
+
 # Seed demo users and sample data
 python manage.py seed_demo
 
@@ -378,9 +381,13 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 - Production now uses `whitenoise.storage.CompressedStaticFilesStorage` with
   `WHITENOISE_USE_FINDERS = True`, so missing `staticfiles/` output or manifest entries
   cannot cause a 500 on template render.
-- `start.sh` now provisions or updates a superuser from `DJANGO_SUPERUSER_EMAIL` and
-  `DJANGO_SUPERUSER_PASSWORD` (username = email), with `UserProfile.role = admin`.
-  Both variables are declared in `render.yaml` (`sync: false`) and `.env.example`.
+- Added `accounts.services.ensure_superuser_from_env()` and the
+  `python manage.py ensure_superuser` command. It creates or updates an admin from
+  `DJANGO_SUPERUSER_EMAIL` / `DJANGO_SUPERUSER_PASSWORD` (username = email) and sets
+  `UserProfile.role = admin`.
+- Provisioning runs from `build.sh`, `start.sh`, and a `post_migrate` receiver, so any
+  successful migration also provisions the admin. Both variables are declared in
+  `render.yaml` (`sync: false`) and `.env.example`.
 
 ### November 2026 - Implementation (Phases 0-6)
 - Implemented Django project with `config.settings` split (base/dev/prod).

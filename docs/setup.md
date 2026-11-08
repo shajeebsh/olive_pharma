@@ -121,8 +121,13 @@ Set these environment variables in Render to create the initial admin account:
 | `DJANGO_SUPERUSER_EMAIL` | Admin login (also used as the username) |
 | `DJANGO_SUPERUSER_PASSWORD` | Admin password |
 
-At startup, `start.sh` creates the superuser if missing, or updates its password and admin
-flags if it already exists. Login with the email address in the username field.
+The superuser is provisioned by `build.sh`, `start.sh`, and the `post_migrate` receiver:
+it is created if missing, or its password and admin flags are updated if it already
+exists. Login with the email address in the username field. You can also run it manually:
+
+```bash
+python manage.py ensure_superuser
+```
 
 Production uses WhiteNoise with `WHITENOISE_USE_FINDERS = True` and
 `CompressedStaticFilesStorage` (no manifest), so static files are served even if the
