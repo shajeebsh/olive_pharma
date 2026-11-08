@@ -400,6 +400,9 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
   `RUN_STARTUP_TASKS=1` enables it elsewhere.
 - `/health/` now verifies the database connection and that `django_migrations` is
   populated, returning `503` with `"migrations": "missing"` instead of a false `ok`.
+- The Render service deploys from the default `main` branch. Merge
+  `feature/postgres-build` into `main` (or retarget Render) and deploy the latest commit
+  before verifying fixes on the live URL; auto-deploy may be disabled.
 
 ### November 2026 - Implementation (Phases 0-6)
 - Implemented Django project with `config.settings` split (base/dev/prod).

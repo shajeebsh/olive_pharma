@@ -126,6 +126,11 @@ python manage.py test
 The repository includes `render.yaml`, `build.sh`, and `start.sh`. Create a Blueprint from
 the repo, or use the same values on a manually created Python web service.
 
+Render deploys the branch configured on the service. This repository's default branch is
+`main`, so merge `feature/postgres-build` into `main` (or point Render at the feature
+branch) before expecting a fix on the live URL. If auto-deploy is disabled, use
+**Manual Deploy → Deploy latest commit**.
+
 | Render setting | Value |
 |----------------|-------|
 | Build Command | `./build.sh` |
