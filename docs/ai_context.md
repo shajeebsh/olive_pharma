@@ -76,7 +76,7 @@ olive_pharma/
 ├── requirements.txt          # Python dependencies
 ├── render.yaml               # Render Blueprint (web service + PostgreSQL)
 ├── build.sh                  # Render build: install, collectstatic, migrate
-├── start.sh                  # Render start: collectstatic, then gunicorn
+├── start.sh                  # Render start: migrate, collectstatic, gunicorn
 ├── .python-version           # Pins Render to Python 3.11.11
 ├── .env.example              # Environment template (no secrets)
 ├── db.sqlite3                # Development database (git-ignored)
@@ -374,7 +374,7 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 - Pinned Render to Python 3.11.11 via `PYTHON_VERSION` and `.python-version`
   (`pythonVersion` in `render.yaml` is not a Render setting). This avoids source builds
   for `pillow-heif`/Pillow on Python 3.14.
-- Added `start.sh` so `collectstatic` runs at boot before Gunicorn.
+- Added `start.sh` so migrations and `collectstatic` run at boot before Gunicorn.
 - Production now uses `whitenoise.storage.CompressedStaticFilesStorage` with
   `WHITENOISE_USE_FINDERS = True`, so missing `staticfiles/` output or manifest entries
   cannot cause a 500 on template render.
