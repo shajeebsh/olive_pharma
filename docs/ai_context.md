@@ -354,6 +354,8 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 - [Build Plan](plan.md) - Phased delivery plan and milestones
 - [Architecture Overview](architecture.md) - Detailed architectural patterns
 - [Field Activity Feature](field-activity.md) - Daily activity, roles, and permissions
+- [Features by Menu](features.md) - Every implemented feature grouped by menu, route,
+  role access, and known gaps
 - [Setup and Installation](setup.md) - Local setup and Render deployment
 - [Testing and QA](testing.md) - Automated and manual testing
 - [REST API Documentation](api.md) - Optional future API notes
@@ -373,6 +375,15 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 ---
 
 ## 11. Change Log
+
+### November 2026 - Features by Menu Documentation
+- Added `docs/features.md` documenting every implemented feature grouped by navigation
+  menu: Dashboard, Reports, Meet Doctor, Meet Chemist, Sales (including Targets),
+  Check In/Out, Help, user menu (Profile/Help/Logout), authentication, Django admin, and
+  Wagtail CMS.
+- Included role/menu visibility, routes, data scoping, form fields, validation, audit
+  logging, CSV export, pagination, operational commands, a feature-to-code map, and
+  known gaps where the implementation differs from the specification.
 
 ### November 2026 - Deployment Fixes
 - Pinned Render to Python 3.11.11 via `PYTHON_VERSION` and `.python-version`
