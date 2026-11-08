@@ -111,8 +111,12 @@ python manage.py test
 The repository includes `render.yaml`, `build.sh`, and `start.sh`. Create a Blueprint from
 the repo; Render provisions PostgreSQL and sets `DATABASE_URL`. The build script installs
 dependencies, collects static files, and applies migrations. The start script runs
-`collectstatic` again before Gunicorn to guarantee the WhiteNoise manifest exists, then
-serves via `gunicorn config.wsgi:application`. `/health/` is the health-check path.
+`collectstatic` again before Gunicorn, then serves via `gunicorn config.wsgi:application`.
+`/health/` is the health-check path.
+
+Production uses WhiteNoise with `WHITENOISE_USE_FINDERS = True` and
+`CompressedStaticFilesStorage` (no manifest), so static files are served even if the
+`staticfiles/` output is missing at runtime.
 
 Render is pinned to Python 3.11.11 via the `PYTHON_VERSION` env var and
 `.python-version` file. Do not use `pythonVersion` in `render.yaml`; Render ignores it.
