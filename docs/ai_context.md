@@ -76,7 +76,7 @@ olive_pharma/
 ├── requirements.txt          # Python dependencies
 ├── render.yaml               # Render Blueprint (web service + PostgreSQL)
 ├── build.sh                  # Render build: install, collectstatic, migrate
-├── start.sh                  # Render start: migrate, collectstatic, gunicorn
+├── start.sh                  # Render start: migrate, superuser, collectstatic, gunicorn
 ├── .python-version           # Pins Render to Python 3.11.11
 ├── .env.example              # Environment template (no secrets)
 ├── db.sqlite3                # Development database (git-ignored)
@@ -378,6 +378,9 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 - Production now uses `whitenoise.storage.CompressedStaticFilesStorage` with
   `WHITENOISE_USE_FINDERS = True`, so missing `staticfiles/` output or manifest entries
   cannot cause a 500 on template render.
+- `start.sh` now provisions or updates a superuser from `DJANGO_SUPERUSER_EMAIL` and
+  `DJANGO_SUPERUSER_PASSWORD` (username = email), with `UserProfile.role = admin`.
+  Both variables are declared in `render.yaml` (`sync: false`) and `.env.example`.
 
 ### November 2026 - Implementation (Phases 0-6)
 - Implemented Django project with `config.settings` split (base/dev/prod).
