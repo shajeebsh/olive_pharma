@@ -183,6 +183,9 @@ python manage.py migrate --no-input
 python manage.py ensure_superuser
 python manage.py collectstatic --no-input
 
+# The work above already ran, so do not repeat it when the WSGI app loads.
+export RUN_STARTUP_TASKS=0
+
 exec gunicorn config.wsgi:application \
   --bind "0.0.0.0:${PORT:-8000}" \
   --workers 3 \
@@ -197,8 +200,8 @@ self-healing if build output is missing.
 
 `ensure_superuser` creates the admin if missing, or updates the password and admin flags
 if the account already exists (username = `DJANGO_SUPERUSER_EMAIL`). It runs from
-`build.sh`, `start.sh`, and a `post_migrate` receiver, so any successful migration also
-provisions the admin. The deploy log should contain:
+`build.sh`, `start.sh`, the WSGI startup safety net, and a `post_migrate` receiver, so
+any successful migration also provisions the admin. The deploy log should contain:
 
 ```
 Superuser ready: admin@example.com
@@ -220,7 +223,24 @@ If no superuser is created:
 3. Use **Manual Deploy → Clear build cache & deploy**, then search the log for
    `Superuser ready` or `Skipped: set both`.
 
-### 9.5 Static files
+### 9.5 WSGI startup safety net
+
+Even if the Render Build/Start commands are still set to the old values, the WSGI entry
+point (`config/wsgi.py`) calls `core.bootstrap.run_startup_tasks()` when Render sets
+`RENDER=true`. That runs `migrate` and `ensure_superuser` once per container before the
+first request, with a file lock so Gunicorn workers do not repeat it. This fixes a
+missing session/auth table (a 500 on login) and provisions the admin without editing the
+Render dashboard.
+
+- The log shows `Startup tasks: applying migrations` and `Startup tasks: complete`.
+- Set `RUN_STARTUP_TASKS=0` to disable this safety net; `start.sh` sets it after running
+  the tasks itself.
+- `RUN_STARTUP_TASKS=1` enables it outside Render (for example, a local production test).
+- `/health/` now checks the database and the `django_migrations` table. It returns
+  `200` with `"migrations": "ok"`, or `503` with `"migrations": "missing"` when the
+  database has not been migrated.
+
+### 9.6 Static files
 
 Production uses WhiteNoise with `WHITENOISE_USE_FINDERS = True` and
 `CompressedStaticFilesStorage` (no manifest), so static files are served even if the
