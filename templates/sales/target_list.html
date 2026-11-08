@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Targets{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h1 class="page-title">Sales targets</h1>
+        <p class="page-subtitle">Monthly and quarterly targets by representative and product.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'sales:list' %}" class="btn btn-outline-secondary btn-sm">Back to sales</a>
+        {% if USER_ROLE == "admin" %}
+        <a href="{% url 'sales:target_create' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i> New target
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Representative</th>
+                    <th>Period</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Product</th>
+                    <th class="text-end">Amount target</th>
+                    <th class="text-end">Quantity target</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for target in targets %}
+                <tr>
+                    <td>{{ target.rep.username }}</td>
+                    <td>{{ target.get_period_display }}</td>
+                    <td>{{ target.start_date }}</td>
+                    <td>{{ target.end_date }}</td>
+                    <td>{{ target.product|default:"Overall" }}</td>
+                    <td class="text-end">{{ target.amount_target|floatformat:2 }}</td>
+                    <td class="text-end">{{ target.quantity_target }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="empty-state">No targets defined.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include "partials/pagination.html" %}
+{% endblock %}

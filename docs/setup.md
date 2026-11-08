@@ -1,90 +1,114 @@
 # Setup and Installation
 
-This guide provides step-by-step instructions for setting up the OlivePharma development
-environment.
+Step-by-step instructions for running OlivePharma locally and on Render.
 
 ## 1. Prerequisites
 
 - Python 3.11+
-- Virtualenv
-- MySQL 8 (optional, for production parity)
-- A modern browser (Chrome/Safari/Firefox) for testing mobile layout with device mode
+- Git
+- PostgreSQL 14+ **only if** you want to match production locally (SQLite is the default)
+- A modern browser for testing the mobile layout with device mode
 
 ## 2. Installation
 
 ```bash
-# Clone the repository
 git clone https://github.com/shajeebsh/olive_pharma.git
 cd olive_pharma
 
-# Create and activate a virtual environment
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
 ```
 
 ## 3. Environment Configuration
 
-Create a `.env` file in the project root:
+Copy the example environment file and adjust values:
 
-```env
-DEBUG=True
-SECRET_KEY=your-secret-key
-DATABASE_URL=sqlite:///db.sqlite3
-ALLOWED_HOSTS=localhost,127.0.0.1
+```bash
+cp .env.example .env
 ```
 
-For production, point `DATABASE_URL` at MySQL:
+Key variables (`python-decouple` reads `.env` automatically):
+
+| Variable | Local default | Purpose |
+|----------|---------------|---------|
+| `DJANGO_SETTINGS_MODULE` | `config.settings.dev` | Settings module |
+| `DEBUG` | `True` | Debug mode |
+| `SECRET_KEY` | dev-only value | Django secret |
+| `DATABASE_URL` | `sqlite:///db.sqlite3` | Database connection |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hosts |
+| `TIME_ZONE` | `UTC` | Display/storage time zone |
+
+To use PostgreSQL locally, point `DATABASE_URL` at it:
 
 ```env
-DATABASE_URL=mysql://user:password@localhost:3306/olive_pharma
+DATABASE_URL=postgres://user:password@localhost:5432/olive_pharma
 ```
 
 ## 4. Database Setup
 
 ```bash
-# Apply migrations
 python manage.py migrate
 
-# Create superuser
+# Optional: demo users and sample field data
+python manage.py seed_demo
+```
+
+`seed_demo` creates `admin`, `rep`, and `staff` users (password `password123`), a region,
+hospital, doctor, pharmacy, products, a doctor visit, a chemist visit, a sale, a target,
+and a check-in.
+
+Create a real superuser when you are ready:
+
+```bash
 python manage.py createsuperuser
 ```
 
 ## 5. Running the Server
 
 ```bash
-# Start development server
 python manage.py runserver
 ```
 
-Access the application at `http://localhost:8000/`. Test the field workflow by opening
-the site in a mobile viewport (or on a phone on the same network using
-`python manage.py runserver 0.0.0.0:8000`).
+- App: http://localhost:8000/
+- Django admin: http://localhost:8000/django-admin/
+- Wagtail CMS admin: http://localhost:8000/cms/
+- Health check: http://localhost:8000/health/
 
-## 6. Static Files
+## 6. Static and Media Files
 
 ```bash
-# Collect static files (required for production)
-python manage.py collectstatic
+# Production only: build the manifest for WhiteNoise
+python manage.py collectstatic --no-input
 ```
+
+In development the app serves plain static files from `static/` without collectstatic.
 
 ## 7. Settings Modules
 
-The project uses a settings split. Run management commands against the right module:
+| Module | Use |
+|--------|-----|
+| `config.settings.dev` | Local development (default via `manage.py`) |
+| `config.settings.prod` | Render/production (`DEBUG=False`, secure cookies, HSTS) |
+
+Production commands:
 
 ```bash
-# Development (default via manage.py)
-python manage.py runserver
-
-# Production
-DJANGO_SETTINGS_MODULE=olivepharma.settings.production python manage.py migrate
+DJANGO_SETTINGS_MODULE=config.settings.prod python manage.py migrate
+DJANGO_SETTINGS_MODULE=config.settings.prod gunicorn config.wsgi:application
 ```
 
-## 8. Docker (Production)
+## 8. Tests and Checks
 
 ```bash
-docker build -t olive_pharma .
-docker run -p 8000:8000 --env-file .env olive_pharma
+python manage.py check
+python manage.py test
 ```
+
+## 9. Deploying to Render
+
+The repository includes `render.yaml` and `build.sh`. Create a Blueprint from the repo;
+Render provisions PostgreSQL and sets `DATABASE_URL`. The build script installs
+dependencies, collects static files, and applies migrations. `gunicorn config.wsgi:application`
+serves the app, and `/health/` is the health-check path.

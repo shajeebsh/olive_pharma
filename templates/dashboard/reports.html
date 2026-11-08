@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load dashboard_extras %}
+
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h1 class="page-title">Reports</h1>
+        <p class="page-subtitle">
+            {{ filters.start_date|date:"d M Y" }} – {{ filters.end_date|date:"d M Y" }}
+        </p>
+    </div>
+    <a href="{% url 'dashboard:export' %}?report={{ active_tab }}&start_date={{ filters.start_date|date:'Y-m-d' }}&end_date={{ filters.end_date|date:'Y-m-d' }}{% if form.show_rep and filters.rep %}&rep={{ filters.rep.id }}{% endif %}{% if filters.hospital %}&hospital={{ filters.hospital.id }}{% endif %}{% if filters.product %}&product={{ filters.product.id }}{% endif %}"
+       class="btn btn-primary btn-sm">
+        <i class="bi bi-download me-1"></i> Export CSV
+    </a>
+</div>
+
+<ul class="nav nav-tabs mb-3">
+    {% for key, label in tabs %}
+    <li class="nav-item">
+        <a class="nav-link{% if key == active_tab %} active{% endif %}"
+           href="?tab={{ key }}&start_date={{ filters.start_date|date:'Y-m-d' }}&end_date={{ filters.end_date|date:'Y-m-d' }}{% if form.show_rep and filters.rep %}&rep={{ filters.rep.id }}{% endif %}{% if filters.hospital %}&hospital={{ filters.hospital.id }}{% endif %}{% if filters.product %}&product={{ filters.product.id }}{% endif %}">
+            {{ label }}
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+
+{% include "dashboard/_filters.html" %}
+
+<div class="card mb-3">
+    <div class="card-header py-3">Trend</div>
+    <div class="card-body">
+        <canvas id="reportChart" height="180"></canvas>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header py-3">{{ active_tab|title }} detail</div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    {% for key, label in columns %}
+                    <th{% if not forloop.first %} class="text-end"{% endif %}>{{ label }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    {% for key, label in columns %}
+                    <td{% if not forloop.first %} class="text-end"{% endif %}>{{ row|get_item:key }}</td>
+                    {% endfor %}
+                </tr>
+                {% empty %}
+                <tr><td colspan="{{ columns|length }}" class="empty-state">No data for the selected filters.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var data = {{ chart|safe }};
+    var el = document.getElementById("reportChart");
+    if (!el || !data.labels.length) return;
+    data.datasets.forEach(function (dataset) {
+        dataset.backgroundColor = "#008080";
+        dataset.borderColor = "#006666";
+        dataset.borderRadius = 4;
+    });
+    new Chart(el, {
+        type: "bar",
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: "bottom" } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+})();
+</script>
+{% endblock %}

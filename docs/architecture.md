@@ -4,6 +4,15 @@ OlivePharma implements a **modular monolith** architecture tuned for a small int
 audience (under 100 users). It prioritises clarity, fast iteration, and a mobile-first
 field workflow over distributed-systems complexity.
 
+> **Implementation note (November 2026)**: The sections below describe the agreed
+> architecture. The shipped build uses `config/` as the project package and these apps:
+> `core`, `accounts`, `visits`, `sales`, `checkin`, `dashboard`, and optional `cms`.
+> Naming mappings: `outlets` + `products` live in `core` (`Region`, `Hospital`, `Doctor`,
+> `Pharmacy`, `Product`); `activities` is split into `visits` (`DoctorVisit`,
+> `ChemistVisit`) and `checkin` (`CheckInOut`); `reporting` is `dashboard`; the DRF `api`
+> app is not implemented. Production uses PostgreSQL (not MySQL), and reports are
+> server-rendered tabs with Chart.js rather than HTMX fragments.
+
 ---
 
 ## 1. Core Architectural Patterns
@@ -14,15 +23,14 @@ The application is a single deployable Django project divided into independent,
 loosely-coupled apps, each representing a bounded context:
 
 ```
-olivepharma/
-├── core/          # Shared base models, dashboard, profile, settings
-├── accounts/      # Users, roles, rep profiles, territories
-├── outlets/       # Doctors, pharmacies, hospitals/facilities
-├── products/      # Product catalog and categories
-├── activities/    # Check-in/out, visits, field activity
-├── sales/         # Orders, sales records, targets
-├── reporting/     # Dashboards, reports, CSV export
-└── api/           # REST API (DRF) for the mobile client
+config/            # Project package (settings, urls, wsgi, asgi)
+core/              # Masters, managers, audit, navigation, permissions, health
+accounts/          # Users and roles (Admin/Representative/Staff)
+visits/            # DoctorVisit, ChemistVisit, services, audit signals
+sales/             # SalesLog, Target, services, audit signals
+checkin/           # CheckInOut (time-only)
+dashboard/         # KPIs, filters, reports, CSV export
+cms/               # Optional Wagtail pages and snippet
 ```
 
 **Benefits**
@@ -32,14 +40,14 @@ olivepharma/
 - Can be split later only if genuinely needed (it is not, at under 100 users)
 - Multiple developers can work on separate apps with minimal conflict
 
-### 1.2 Model-View-Template (MVT) with HTMX Enhancement
+### 1.2 Model-View-Template (MVT) with Progressive Enhancement
 
-Follows Django's native architecture with progressive frontend enhancement:
+Follows Django's native architecture with light frontend enhancement:
 
-- **Models**: data structure and invariants (`activities/models.py`)
-- **Views**: request handling and data retrieval (`activities/views.py`)
-- **Templates**: presentation (`templates/activities/visit_list.html`)
-- **HTMX**: partial updates for an SPA-like feel while keeping MVT simplicity
+- **Models**: data structure and invariants (`visits/models.py`, `sales/models.py`)
+- **Views**: request handling and data retrieval (`visits/views.py`, `dashboard/views.py`)
+- **Templates**: presentation (`templates/visits/doctor_list.html`)
+- **Chart.js**: client-side charts fed by server-rendered data; no SPA or HTMX dependency
 
 ### 1.3 Domain-Driven Design Influences
 

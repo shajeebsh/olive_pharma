@@ -1,13 +1,12 @@
 # OlivePharma - Project Context Documentation
 
-> **Last Updated**: November 2026  
-> **Status**: Greenfield - docs foundation and field-activity spec complete, implementation not started  
+> **Last Updated**: November 2026
+> **Status**: Implementation complete for Phases 0-6 (foundation, roles, masters,
+> field activity, sales/targets, dashboards/reports). Optional API and hardening next.
 > **Maintained by**: Development Team
 
-> **Current state**: This repository currently contains documentation only. The
-> `olivepharma/` application package, models, views, and templates described below are
-> the agreed target architecture and have not been implemented yet. Begin with
-> [plan.md](plan.md) Phase 0.
+> **Current state**: The Django application is implemented and runnable. Documentation
+> below reflects the code in this repository, not a future target.
 
 ---
 
@@ -15,8 +14,8 @@
 
 **OlivePharma** is a field activity and sales tracking application for a pharmaceutical
 company that acquires/manufactures medicines in bulk and supplies them to pharmacies. The
-company employs a large number of medical representatives (MRs), and the application's
-main purpose is to **log the daily activity of each worker**.
+company employs medical representatives (MRs), and the application's main purpose is to
+**log the daily activity of each worker**.
 
 It covers doctor meetings, chemist/pharmacy meetings, manual sales updates sourced from
 an external accounting system, time-based check-in/check-out (no GPS), and dashboards
@@ -41,29 +40,31 @@ with monthly, representative-wise, and hospital-wise reporting.
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | Backend | Django | 5.0.x |
-| REST API | Django REST Framework | 3.14+ |
-| Database | SQLite (dev) / MySQL 8 (prod) | — |
-| DB driver | PyMySQL (MySQL DB-API shim) | 1.1+ |
-| Config | django-environ | 0.11+ |
-| Frontend | Django Templates, Bootstrap 5.3, HTMX | — |
-| Charts | Chart.js | 4.x |
+| CMS | Wagtail (optional pages) | 6.0.x |
+| Database | SQLite (dev) / PostgreSQL (prod) | — |
+| DB driver | psycopg2-binary + dj-database-url | 2.9 / 2.1 |
+| Config | python-decouple | 3.8+ |
+| Frontend | Django Templates, Bootstrap 5.3, Chart.js | — |
 | Icons / Font | Bootstrap Icons, Inter (Google Fonts) | — |
-| Authentication | Django Auth (sessions for web, tokens for mobile) | — |
-| App server | Gunicorn | 21+ |
+| Authentication | Django Auth (session-based) | — |
+| App server | Gunicorn + WhiteNoise | 21+ / 6.6+ |
+| Deployment | Render Blueprint (`render.yaml`) | — |
+| PDF (future) | WeasyPrint | 61+ |
 
-### Deliberate Omissions (vs. OliveCRM)
-
-OlivePharma intentionally does **not** include the following at this stage:
+### Deliberate Omissions
 
 | Omitted | Why |
 |---------|-----|
-| Wagtail CMS | No public content-marketing requirement |
+| Django REST Framework / API | The responsive web app covers the field workflow; the API remains optional future work |
 | Celery + Redis | Workload is small; synchronous exports are sufficient |
 | OpenAI integration | No AI features in the MVP |
 | Multi-tenancy | Single organisation, under 100 users |
 | Microservices | Modular monolith is simpler and sufficient |
+| HTMX / SPA framework | Server-rendered tabs and forms are sufficient at this scale |
 
-If any of these becomes necessary, record the decision in Section 6 before adding it.
+Wagtail **is** included, but only for optional CMS pages under `/cms/`; it is not part of
+the core field workflow. If any omission becomes necessary, record the decision in
+Section 6 before adding it.
 
 ---
 
@@ -71,55 +72,56 @@ If any of these becomes necessary, record the decision in Section 6 before addin
 
 ```
 olive_pharma/
-├── manage.py                 # Django management script
+├── manage.py                 # Django management script (config.settings.dev)
 ├── requirements.txt          # Python dependencies
+├── render.yaml               # Render Blueprint (web service + PostgreSQL)
+├── build.sh                  # Render build: install, collectstatic, migrate
+├── .env.example              # Environment template (no secrets)
 ├── db.sqlite3                # Development database (git-ignored)
-├── .env                      # Local environment variables (git-ignored)
-├── Dockerfile                # Container build (production)
 │
-├── docs/                     # Documentation (this folder)
-│   ├── ai_context.md         # Canonical project context (this file)
-│   ├── plan.md               # Build plan and milestones
-│   ├── architecture.md       # Detailed architecture
-│   ├── field-activity.md     # Daily field activity feature specification
-│   ├── setup.md              # Setup and installation
-│   ├── testing.md            # Testing and QA
-│   └── api.md                # REST API documentation
+├── config/                   # Project package
+│   ├── settings/
+│   │   ├── base.py           # Shared settings
+│   │   ├── dev.py            # Development overrides
+│   │   └── prod.py           # Production overrides
+│   ├── urls.py               # Root URL routing
+│   ├── wsgi.py               # WSGI config (config.settings.prod)
+│   └── asgi.py               # ASGI config (config.settings.dev)
 │
-└── olivepharma/              # Main project package
-    ├── settings/             # Django settings split
-    │   ├── base.py           # Shared settings
-    │   ├── dev.py            # Development overrides
-    │   └── production.py     # Production overrides
-    ├── urls.py               # Root URL routing
-    ├── wsgi.py               # WSGI config
-    ├── asgi.py               # ASGI config
-    │
-    ├── core/                 # Shared base models, dashboard, profile, settings
-    ├── accounts/             # Users, roles, rep profiles, territories
-    ├── outlets/              # Doctors (HCPs), pharmacies, hospitals/facilities
-    ├── products/             # Product catalog and categories
-    ├── activities/           # Check-in/out, visits, field day, activity log
-    ├── sales/                # Orders, sales records, targets
-    ├── reporting/            # Reports, dashboards, CSV export
-    ├── api/                  # REST API (DRF)
-    │
-    ├── static/               # CSS, JS, images
-    │   ├── css/
-    │   │   ├── theme.css         # "Trusted Innovator" design tokens
-    │   │   ├── olive-theme.css   # Component styles
-    │   │   └── index.css         # Utility styles
-    │   └── js/
-    │
-    └── templates/            # Django templates
-        ├── base.html         # Two-row shell layout
-        ├── core/             # Dashboard, profile, settings
-        ├── accounts/         # Rep list/detail/forms
-        ├── outlets/          # HCP/pharmacy list/detail/forms
-        ├── products/         # Product list/detail/forms
-        ├── activities/       # Meet Doctor, Meet Chemist, check-in/out, attendance
-        ├── sales/            # Orders, targets
-        └── reporting/        # Reports with HTMX partials
+├── core/                     # Shared masters, managers, audit, navigation, health
+│   ├── models.py             # TimeStampedModel, AuditLog, Region, Hospital, Doctor,
+│   │                         # Pharmacy, Product
+│   ├── managers.py           # ScopedQuerySet/ScopedManager, get_user_role
+│   ├── permissions.py        # role_required, RoleRequiredMixin
+│   ├── navigation.py         # NAV_REGISTRY + nav_for_role
+│   ├── context_processors.py # NAV_ITEMS + USER_ROLE
+│   ├── middleware.py         # RoleAccessMiddleware (path-level role checks)
+│   ├── management/commands/seed_demo.py
+│   └── views.py              # health, help redirect
+│
+├── accounts/                 # UserProfile (roles), profile view, signals
+├── visits/                   # DoctorVisit, ChemistVisit, services, signals, receivers
+├── sales/                    # SalesLog, Target, services, signals, receivers
+├── checkin/                  # CheckInOut, check-in/out services and views
+├── dashboard/                # KPIs, filters, reports, charts, CSV export
+│   └── templatetags/         # get_item filter for report rows
+├── cms/                      # Optional Wagtail pages + snippet
+│
+├── static/
+│   ├── css/theme.css         # "Trusted Innovator" design tokens + components
+│   └── js/navigation.js      # User menu, mobile nav, active-link state
+│
+└── templates/
+    ├── base.html             # Two-row shell layout
+    ├── partials/             # form_fields, pagination
+    ├── registration/         # login, logged_out
+    ├── dashboard/            # home, reports, _filters, _kpi_card
+    ├── visits/               # doctor_list/form, chemist_list/form
+    ├── sales/                # list/form, target_list/form
+    ├── checkin/              # list, check_in, check_out
+    ├── accounts/             # profile
+    ├── cms/                  # Wagtail page templates
+    └── help.html
 ```
 
 ---
@@ -128,71 +130,81 @@ olive_pharma/
 
 | Path | App | Purpose |
 |------|-----|---------|
-| `/` | core | Dashboard (`dashboard`) |
+| `/` | dashboard | Dashboard (`dashboard:home`) |
+| `/reports/` | dashboard | Reports with tabs (`dashboard:reports`) |
+| `/reports/export/` | dashboard | CSV export (`dashboard:export`) |
 | `/accounts/` | django.contrib.auth | Login/logout |
+| `/profile/` | accounts | User profile (`accounts:profile`) |
 | `/django-admin/` | admin | Django admin |
-| `/profile/` | core | User profile |
-| `/settings/` | core:settings | Settings pages |
-| `/reps/` | accounts | Rep list, detail, targets |
-| `/outlets/` | outlets | States, hospitals, doctors, pharmacies |
-| `/products/` | products | Product catalog |
-| `/activities/` | activities | Meet Doctor, Meet Chemist, check-in/out, attendance |
-| `/sales/` | sales | Manual sales entry and targets |
-| `/reports/` | reporting | Reports (index, monthly, representatives, hospitals) |
-| `/api/` | api | REST API endpoints for the mobile app |
+| `/cms/` | wagtail.admin | Wagtail CMS admin |
+| `/visits/doctor/` | visits | Meet Doctor list/create (`doctor_list`, `doctor_create`) |
+| `/visits/chemist/` | visits | Meet Chemist list/create (`chemist_list`, `chemist_create`) |
+| `/sales/` | sales | Sales list/create (`list`, `create`) |
+| `/sales/targets/` | sales | Targets list/create (`target_list`, `target_create`) |
+| `/checkin/` | checkin | Attendance list + check in/out (`list`, `check_in`, `check_out`) |
+| `/health/` | core | Health check JSON |
+| `/help/` | core | Help page |
+| `/` (fallback) | wagtail | Optional CMS page serving |
 
 ### Namespace Usage
 
-- Use `reporting:index`, `reporting:monthly`, `reporting:representatives`, etc.
-- Use `activities:meet_doctor`, `activities:meet_chemist`, `activities:check_in`,
-  `activities:check_out`, `activities:attendance`
-- Use `outlets:state_list`, `outlets:hospital_list`, `outlets:doctor_list`,
-  `outlets:pharmacy_list`
-- Use `sales:entry_list`, `sales:entry_create`, `sales:target_list`
-- Use `core:settings` for settings pages
+- `dashboard:home`, `dashboard:reports`, `dashboard:export`
+- `visits:doctor_list`, `visits:doctor_create`, `visits:chemist_list`,
+  `visits:chemist_create`
+- `sales:list`, `sales:create`, `sales:target_list`, `sales:target_create`
+- `checkin:list`, `checkin:check_in`, `checkin:check_out`
+- `accounts:profile`
+- Django auth names are unnamespaced: `login`, `logout`
 
 ---
 
 ## 4. Key Features
 
 ### 4.1 Dashboard
-- KPI cards with vertical-accent styling (doctor meetings, chemist meetings, check-ins,
+- KPI cards with vertical-accent styling (doctor visits, chemist visits, check-ins,
   sales amount)
-- Recent activity table (doctor and chemist meetings)
-- Monthly and month-over-month trends
-- Representative-wise and hospital-wise breakdowns
-- Filters: date range/month, representative, state, hospital, product
+- Recent activity table (doctor and chemist visits)
+- Representative-wise and hospital-wise breakdown tables
+- Filters: date range, representative (admin/staff), hospital, product
+- Chart.js bar charts for representative- and hospital-wise sales
 
 ### 4.2 Check-in / Check-out
 - **Time-based log only - no GPS or location capture**
-- User clicks Check In/Check Out; the server records timestamps
+- Server records date, check-in time, and check-out time
 - Duration computed on check-out
-- One open check-in per user at a time
-- Attendance history and reports per user
+- One check-in record per user per day (`unique_checkin_per_user_per_day`)
+- Users see their own history; staff/admin use the dashboard for company-wide views
 
 ### 4.3 Field Activity Tracking
-- **Meet Doctor**: log state, hospital, doctor, date, and products introduced
-- **Meet Chemist**: log the pharmacy near the doctor's locality, current products, and
-  the products the pharmacy needs
-- Activity list per representative and per day
-- Admin can review all activity; users see their own
+- **Meet Doctor**: log region, hospital, doctor, date, products introduced, notes
+- **Meet Chemist**: log region, hospital, doctor context, pharmacy, current products,
+  products needed, notes
+- Service-layer creation (`log_doctor_visit`, `log_chemist_visit`) emits
+  `doctor_visit_logged` / `chemist_visit_logged`
+- Receivers write `AuditLog` rows
+- Reps/admins access visit screens; reps are scoped to their own records
 
 ### 4.4 Sales & Targets
-- **Update Sales**: manual entry of accounting data, matched by representative,
-  hospital, doctor, pharmacy, and product
-- Product catalog and categories
-- Monthly/quarterly targets per rep and product
-- Actual vs. target progress
+- **Manual Sales**: staff/admin enter sales matched by representative, region, hospital,
+  doctor, pharmacy, product, quantity, amount, and external reference
+- `sales_logged` signal writes an audit entry
+- Duplicate external reference per representative is rejected
+- Monthly/quarterly `Target` records per rep and optional product
+- `target_attainment()` service computes actual vs target amount/quantity and percentages
 
-### 4.5 Reporting Module
-- HTMX-powered tab switching (Monthly, Representatives, Hospitals, Products)
-- Monthly reports, trends, representative-wise and hospital-wise data
-- Filters shared across tabs (date range, rep, state, hospital, product)
-- CSV export with filtering
-- Direct URL access redirects to the full index page
-- Chart.js visualisation
+### 4.5 Reporting
+- Server-rendered tabs: Monthly, Representatives, Hospitals, Products
+- Filters shared across tabs: date range, representative, hospital, product
+- CSV export per report honouring the active filters
+- Chart.js visualisation for each tab
+- Scoping via `ScopedManager.for_user`: reps see their own data; admin/staff company-wide
 
-### 4.6 "Trusted Innovator" Theme
+### 4.6 CMS (Optional)
+- Wagtail `CMSHomePage` and `CMSPage` for optional public pages
+- `SiteSetting` snippet
+- Admin at `/cms/`; page serving falls back at the root after app URLs
+
+### 4.7 "Trusted Innovator" Theme
 
 | Role | Color | Hex |
 |------|-------|-----|
@@ -209,49 +221,52 @@ olive_pharma/
 ## 5. Conventions
 
 ### 5.1 Project & Code Layout
-- One Django app per **bounded context** under `olivepharma/`.
-- Apps are lowercase, plural where it reads naturally (`outlets`, `products`, `activities`, `sales`).
+- One Django app per **bounded context** at the repository root.
 - Every app owns its `models.py`, `views.py`, `urls.py`, `forms.py`, `admin.py`, `tests.py`.
-- Complex business logic goes in a `services.py` module inside the owning app; keep models and views thin.
-- Templates live under `olivepharma/templates/<app>/`; report fragments under `<app>/partials/`.
+- Complex business logic goes in a `services.py` module inside the owning app; keep models
+  and views thin.
+- Cross-module side effects use Django signals; receivers live in `receivers.py` and are
+  imported from `AppConfig.ready()`.
+- Templates live under `templates/<app>/`; shared fragments under `templates/partials/`.
 
 ### 5.2 Models
-- Shared base model is `olivepharma.core.models.TimeStampedModel` (`created_at`, `updated_at`).
+- Shared base model is `core.models.TimeStampedModel` (`created_at`, `updated_at`).
 - Use `models.BigAutoField` (`DEFAULT_AUTO_FIELD`); do not change it.
 - Use `related_name` on every non-trivial FK.
-- Use `choices` lists at module level in `SCREAMING_SNAKE_CASE`.
+- Use `choices` lists at module level in `SCREAMING_SNAKE_CASE` (or class constants).
 - Add `Meta.indexes` for fields used in list filters and dashboards.
 - `__str__` must return a human-readable label for every model.
 
 ### 5.3 Views
-- Class-based views (`ListView`, `DetailView`, `CreateView`, `UpdateView`, `DeleteView`) for CRUD.
-- Function views or thin `TemplateView`s for dashboards.
+- Class-based views (`ListView`, `CreateView`, `UpdateView`, `FormView`, `TemplateView`)
+  for CRUD and dashboards.
+- Use `RoleRequiredMixin` in views **and** `RoleAccessMiddleware` for path-level checks.
 - Use `LoginRequiredMixin` / `@login_required` on all non-public views.
-- HTMX fragments: check `request.headers.get("HX-Request")`, otherwise redirect to the full page.
+- Representatives are filtered through `ScopedManager.for_user`.
 
 ### 5.4 URLs
 - Declare `app_name` in every app `urls.py`.
-- Include app URLs with an explicit namespace where required.
-- URL names are `snake_case` (`visit_list`, `check_in`, `order_create`).
+- URL names are `snake_case` (`doctor_list`, `check_in`, `target_create`).
 
 ### 5.5 Templates & Frontend
 - All pages extend `base.html` (two-row shell layout).
-- Use Bootstrap 5 classes and the existing `.kpi-card` pattern for dashboards.
-- Use HTMX for partial updates; do not introduce a SPA framework.
-- Theme colours come from CSS variables in `theme.css`; never hard-code hex values in templates.
+- Use Bootstrap 5 classes and the `.kpi-card` pattern for dashboards.
+- Theme colours come from CSS variables in `static/css/theme.css`; never hard-code hex
+  values in templates.
 - Mobile-first: field screens must be usable on small touch screens.
 
 ### 5.6 Security
 - CSRF protection stays enabled; never use `@csrf_exempt` without documented reason.
 - Role checks are enforced server-side, not only by hiding UI.
 - **No GPS or location data is collected, requested, or stored anywhere.**
-- Activity and attendance records are visible only to their owner unless the user is an Admin.
+- Activity and attendance records are visible only to their owner unless the user is an
+  admin (staff have company-wide sales/report visibility per the role matrix).
 - Never commit `.env`, secrets, database files, or credentials.
 
 ### 5.7 Testing
 - Every app has tests in `tests.py` (or a `tests/` package as it grows).
-- Test models, permissions, and critical flows (doctor/chemist meetings, sales entry,
-  check-in/out, reports).
+- Test models, permissions, and critical flows (visits, sales entry, check-in/out,
+  targets, dashboard reports/CSV).
 - Run `python manage.py test` and `python manage.py check` before committing.
 
 ---
@@ -261,16 +276,18 @@ olive_pharma/
 | # | Decision | Rationale |
 |---|----------|-----------|
 | D1 | Modular monolith (single Django project) | Under 100 users; avoids distributed-systems overhead |
-| D2 | Django templates + HTMX, no SPA | Fast to build, server-rendered, low JS complexity |
+| D2 | Django templates + Bootstrap, no SPA | Fast to build, server-rendered, low JS complexity |
 | D3 | Bootstrap 5 + shared theme tokens | Matches OliveCRM design system for consistency |
-| D4 | SQLite for dev, MySQL for production | Zero-setup dev; production parity via PyMySQL |
-| D5 | No Wagtail CMS | No public-content requirement |
+| D4 | SQLite for dev, PostgreSQL for production | Zero-setup dev; managed Postgres on Render via `DATABASE_URL` |
+| D5 | Wagtail included for optional CMS pages only | Content pages may be useful; core workflow does not depend on it |
 | D6 | No Celery/Redis in MVP | Exports and dashboards are synchronous at this scale |
-| D7 | DRF token API for mobile | A thin mobile client may be added; tokens are simple |
+| D7 | No DRF API in current build | The responsive web app covers the field workflow; API is optional future work |
 | D8 | Role-based access (Admin, Representative, Staff) | Matches the operational roles; enforced server-side |
 | D9 | Check-in/out is a time-based log only (no GPS) | Spec requires time logs, not location; avoids privacy complexity |
 | D10 | `TimeStampedModel` for shared timestamps | Consistency across all domain models |
 | D11 | Sales are entered manually from the external accounting app | Accounting is out of scope; staff match rep/hospital/doctor/pharmacy/product |
+| D12 | Signals for cross-module audit logging | Keeps sales/visit views thin and side effects decoupled |
+| D13 | Render Blueprint for deployment | Single web service + managed PostgreSQL, no container overhead |
 
 ---
 
@@ -279,18 +296,20 @@ olive_pharma/
 The following are foundational and must not be changed without an explicit,
 documented decision:
 
-1. **Stack**: Django 5.0.x, Bootstrap 5, HTMX, Chart.js, DRF, SQLite/MySQL.
-2. **Project layout**: `olivepharma/` package with one app per bounded context.
+1. **Stack**: Django 5.0.x, Bootstrap 5, Chart.js, PostgreSQL production database.
+2. **Project layout**: `config/` project package with one app per bounded context.
 3. **Base model contract**: `TimeStampedModel` remains the shared timestamp base.
 4. **Design system**: "Trusted Innovator" colour tokens and the two-row shell layout.
 5. **URL namespaces**: existing `app_name` values and named routes.
-6. **Auth model**: Django's built-in user plus role/profile extension (no custom user swap).
+6. **Auth model**: Django's built-in user plus `UserProfile` role extension (no custom
+   user swap).
 7. **Role model**: Admin, Representative, and Staff with the permissions in
    [field-activity.md](field-activity.md#6-permissions-matrix).
 8. **No GPS/location capture**: check-in/check-out is a time-based log only.
-9. **Complexity budget**: do not introduce Wagtail, Celery, Redis, microservices,
-   or multi-tenancy without a new ADR in Section 6.
-10. **Data ownership**: representatives and staff see their own data; admins see all.
+9. **Complexity budget**: do not introduce Celery, Redis, microservices, or
+   multi-tenancy without a new ADR in Section 6.
+10. **Data ownership**: representatives see their own data; admins/staff see company-wide
+    data; enforced server-side.
 11. **No secrets in the repository**: `.env`, credentials, and DB files stay out of git.
 
 ---
@@ -298,6 +317,9 @@ documented decision:
 ## 8. Development Commands
 
 ```bash
+# Activate the project virtualenv
+source .venv/bin/activate
+
 # Run the development server
 python manage.py runserver
 
@@ -310,9 +332,14 @@ python manage.py migrate
 # Create migrations after model changes
 python manage.py makemigrations
 
+# Seed demo users and sample data
+python manage.py seed_demo
+
 # Run tests
 python manage.py test
 ```
+
+Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 
 ---
 
@@ -321,11 +348,11 @@ python manage.py test
 - [Build Plan](plan.md) - Phased delivery plan and milestones
 - [Architecture Overview](architecture.md) - Detailed architectural patterns
 - [Field Activity Feature](field-activity.md) - Daily activity, roles, and permissions
-- [Setup and Installation](setup.md) - Getting started guide
-- [Testing and QA](testing.md) - Automated and E2E testing
-- [REST API Documentation](api.md) - API endpoints and usage
-- `olivepharma/static/css/theme.css` - Design tokens
-- `olivepharma/templates/base.html` - Shell layout
+- [Setup and Installation](setup.md) - Local setup and Render deployment
+- [Testing and QA](testing.md) - Automated and manual testing
+- [REST API Documentation](api.md) - Optional future API notes
+- `static/css/theme.css` - Design tokens and component styles
+- `templates/base.html` - Two-row shell layout
 
 ---
 
@@ -341,29 +368,37 @@ python manage.py test
 
 ## 11. Change Log
 
+### November 2026 - Implementation (Phases 0-6)
+- Implemented Django project with `config.settings` split (base/dev/prod).
+- Added `core` masters and infrastructure: `TimeStampedModel`, `AuditLog`, `Region`,
+  `Hospital`, `Doctor`, `Pharmacy`, `Product`, scoped managers, role permissions,
+  navigation registry, role middleware, health check.
+- Added `accounts` roles (Admin/Representative/Staff) with auto-created profiles.
+- Added `visits` (DoctorVisit, ChemistVisit) with services and audit signals.
+- Added `sales` (SalesLog, Target) with duplicate-reference protection, `sales_logged`
+  signal, and target attainment service.
+- Added `checkin` (CheckInOut) with time-only check-in/out and one record per day.
+- Added `dashboard` KPIs, shared filters, four report tabs, Chart.js, and CSV export.
+- Added optional Wagtail `cms` pages and snippet.
+- Added two-row Bootstrap shell, KPI cards, module templates, demo seed command, tests,
+  `render.yaml`, `build.sh`, and `.env.example`.
+- Reconciled this context with the implemented PostgreSQL/Wagtail build.
+
 ### November 2026 - Field Activity Feature Specification
 - Added `docs/field-activity.md`: Meet Doctor, Meet Chemist, Update Sales,
   time-only Check-In/Check-Out, dashboards, and the Admin/Representative/Staff
   permission model.
 - Reconciled the canonical context with the feature spec:
   - Check-in/out is **time-based only** (removed GPS/geofence); decision D9 updated.
-  - Roles are **Admin, Representative, Staff** (replaced the earlier manager/rep model);
-    decision D8 updated.
+  - Roles are **Admin, Representative, Staff**; decision D8 updated.
   - Sales are **manually entered** from the external accounting application; decision
     D11 added.
   - Dashboard/reporting adjusted to monthly, representative-wise, and hospital-wise views.
-- **Task checkpoint (end)**: feature specification complete; application code not started.
 
 ### November 2026 - Documentation Foundation
 - Created `docs/ai_context.md`, `docs/plan.md`, `docs/architecture.md`.
 - Mirrored OliveCRM documentation structure and the "Trusted Innovator" design system.
-- Defined domain bounded contexts: core, accounts, outlets, products, activities, sales, reporting, api.
-- Recorded initial architecture decisions (D1-D10) and the "must not change" list.
-- Added `docs/setup.md`, `docs/testing.md`, `docs/api.md` and updated `README.md` to
-  match the OliveCRM documentation style.
-- **Task checkpoint (end)**: documentation foundation is complete and internally
-  consistent; no application code has been written yet. Next step is Phase 0 in
-  [plan.md](plan.md).
+- Added `docs/setup.md`, `docs/testing.md`, `docs/api.md` and updated `README.md`.
 
 ---
 

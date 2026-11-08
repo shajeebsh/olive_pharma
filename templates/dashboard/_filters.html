@@ -1,0 +1,16 @@
+{% load dashboard_extras %}
+<form method="get" class="row g-2 align-items-end mb-3">
+    {% if active_tab %}<input type="hidden" name="tab" value="{{ active_tab }}">{% endif %}
+    {% for field in form %}
+        {% if field.name != "rep" or form.show_rep %}
+        <div class="col-6 col-md-2">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+        </div>
+        {% endif %}
+    {% endfor %}
+    <div class="col-12 col-md-auto d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+        <a href="{{ request.path }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+    </div>
+</form>

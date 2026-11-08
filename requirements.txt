@@ -1,0 +1,19 @@
+Django>=5.0,<5.1
+wagtail>=6.0,<6.1
+
+# Database (PostgreSQL on Render; dj-database-url parses DATABASE_URL)
+dj-database-url>=2.1
+psycopg2-binary>=2.9
+
+# Configuration
+python-decouple>=3.8
+
+# Serving / deployment
+gunicorn>=21.2
+whitenoise>=6.6
+
+# PDF export
+weasyprint>=61.0
+
+# Wagtail image handling
+Pillow>=10.2

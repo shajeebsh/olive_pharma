@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% load dashboard_extras %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">
+            {{ filters.start_date|date:"d M Y" }} – {{ filters.end_date|date:"d M Y" }}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'dashboard:reports' %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-bar-chart me-1"></i> Reports
+        </a>
+        <a href="{% url 'dashboard:export' %}?report=monthly&start_date={{ filters.start_date|date:'Y-m-d' }}&end_date={{ filters.end_date|date:'Y-m-d' }}{% if form.show_rep and filters.rep %}&rep={{ filters.rep.id }}{% endif %}{% if filters.hospital %}&hospital={{ filters.hospital.id }}{% endif %}{% if filters.product %}&product={{ filters.product.id }}{% endif %}"
+           class="btn btn-primary btn-sm">
+            <i class="bi bi-download me-1"></i> Export
+        </a>
+    </div>
+</div>
+
+{% include "dashboard/_filters.html" %}
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3">
+        {% include "dashboard/_kpi_card.html" with label="Doctor Visits" value=kpis.doctor_visits icon="bi-person-badge" accent="blue" %}
+    </div>
+    <div class="col-6 col-lg-3">
+        {% include "dashboard/_kpi_card.html" with label="Chemist Visits" value=kpis.chemist_visits icon="bi-capsule" accent="teal" %}
+    </div>
+    <div class="col-6 col-lg-3">
+        {% include "dashboard/_kpi_card.html" with label="Check-ins" value=kpis.checkins icon="bi-clock" accent="orange" %}
+    </div>
+    <div class="col-6 col-lg-3">
+        {% include "dashboard/_kpi_card.html" with label="Sales Amount" value=kpis.sales_amount|floatformat:2 icon="bi-cash-stack" accent="green" meta=kpis.sales_count|stringformat:"s"|add:" entries" %}
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-3">Representative-wise sales</div>
+            <div class="card-body">
+                <canvas id="repChart" height="220"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-3">Hospital-wise sales</div>
+            <div class="card-body">
+                <canvas id="hospitalChart" height="220"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header py-3">Representative breakdown</div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Representative</th>
+                            <th class="text-end">Doctors</th>
+                            <th class="text-end">Chemists</th>
+                            <th class="text-end">Check-ins</th>
+                            <th class="text-end">Sales</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rep_rows %}
+                        <tr>
+                            <td>{{ row.rep }}</td>
+                            <td class="text-end">{{ row.doctor_visits }}</td>
+                            <td class="text-end">{{ row.chemist_visits }}</td>
+                            <td class="text-end">{{ row.checkins }}</td>
+                            <td class="text-end">{{ row.sales_amount|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="empty-state">No activity in this period.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header py-3">Hospital breakdown</div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Hospital</th>
+                            <th class="text-end">Doctors</th>
+                            <th class="text-end">Chemists</th>
+                            <th class="text-end">Sales</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in hospital_rows %}
+                        <tr>
+                            <td>{{ row.hospital }}</td>
+                            <td class="text-end">{{ row.doctor_visits }}</td>
+                            <td class="text-end">{{ row.chemist_visits }}</td>
+                            <td class="text-end">{{ row.sales_amount|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="empty-state">No activity in this period.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header py-3">Recent activity</div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Date</th>
+                            <th>Representative</th>
+                            <th>Outlet</th>
+                            <th>Hospital</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in recent_activity %}
+                        <tr>
+                            {% if item.kind == "doctor" %}
+                            <td><span class="badge badge-soft-success">Doctor</span></td>
+                            <td>{{ item.obj.date }}</td>
+                            <td>{{ item.obj.rep.username }}</td>
+                            <td>{{ item.obj.doctor }}</td>
+                            <td>{{ item.obj.hospital }}</td>
+                            {% else %}
+                            <td><span class="badge bg-secondary">Chemist</span></td>
+                            <td>{{ item.obj.date }}</td>
+                            <td>{{ item.obj.rep.username }}</td>
+                            <td>{{ item.obj.pharmacy }}</td>
+                            <td>{{ item.obj.hospital }}</td>
+                            {% endif %}
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="empty-state">No recent activity.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var repData = {{ rep_chart|safe }};
+    var hospitalData = {{ hospital_chart|safe }};
+
+    function makeChart(id, data, colour) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        data.datasets.forEach(function (dataset) {
+            dataset.backgroundColor = colour;
+            dataset.borderRadius = 4;
+        });
+        new Chart(el, {
+            type: "bar",
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    makeChart("repChart", repData, "#008080");
+    makeChart("hospitalChart", hospitalData, "#003566");
+})();
+</script>
+{% endblock %}
