@@ -388,6 +388,9 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 - Provisioning runs from `build.sh`, `start.sh`, and a `post_migrate` receiver, so any
   successful migration also provisions the admin. Both variables are declared in
   `render.yaml` (`sync: false`) and `.env.example`.
+- Expanded `docs/setup.md` with the full local/Render environment variable table, exact
+  Render Build/Start commands, step-by-step `build.sh`/`start.sh` behavior, superuser
+  provisioning/troubleshooting, and WhiteNoise static-file notes.
 
 ### November 2026 - Implementation (Phases 0-6)
 - Implemented Django project with `config.settings` split (base/dev/prod).
