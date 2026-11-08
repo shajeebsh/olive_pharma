@@ -111,8 +111,18 @@ python manage.py test
 The repository includes `render.yaml`, `build.sh`, and `start.sh`. Create a Blueprint from
 the repo; Render provisions PostgreSQL and sets `DATABASE_URL`. The build script installs
 dependencies, collects static files, and applies migrations. The start script re-runs
-`migrate` and `collectstatic` before Gunicorn, then serves via
-`gunicorn config.wsgi:application`. `/health/` is the health-check path.
+`migrate`, provisions the admin superuser, and runs `collectstatic` before Gunicorn, then
+serves via `gunicorn config.wsgi:application`. `/health/` is the health-check path.
+
+Set these environment variables in Render to create the initial admin account:
+
+| Variable | Purpose |
+|----------|---------|
+| `DJANGO_SUPERUSER_EMAIL` | Admin login (also used as the username) |
+| `DJANGO_SUPERUSER_PASSWORD` | Admin password |
+
+At startup, `start.sh` creates the superuser if missing, or updates its password and admin
+flags if it already exists. Login with the email address in the username field.
 
 Production uses WhiteNoise with `WHITENOISE_USE_FINDERS = True` and
 `CompressedStaticFilesStorage` (no manifest), so static files are served even if the
