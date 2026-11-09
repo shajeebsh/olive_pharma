@@ -136,7 +136,12 @@ def rep_breakdown(user, filters):
 def hospital_breakdown(user, filters):
     sales = (
         sales_queryset(user, filters)
-        .values("hospital_id", "hospital__name")
+        .values(
+            "hospital_id",
+            "hospital__name",
+            "hospital__region__state",
+            "hospital__region__country",
+        )
         .annotate(amount=Sum("amount"), quantity=Sum("quantity"))
         .order_by("-amount")
     )
@@ -161,6 +166,8 @@ def hospital_breakdown(user, filters):
             {
                 "hospital_id": row["hospital_id"],
                 "hospital": row["hospital__name"],
+                "state": row["hospital__region__state"],
+                "country": row["hospital__region__country"],
                 "sales_amount": row["amount"] or 0,
                 "sales_quantity": row["quantity"] or 0,
                 "doctor_visits": doctor_map.get(row["hospital_id"], 0),
@@ -171,14 +178,20 @@ def hospital_breakdown(user, filters):
     if extra_ids:
         from core.models import Hospital
 
-        names = dict(
-            Hospital.objects.filter(id__in=extra_ids).values_list("id", "name")
-        )
+        details = {
+            row["id"]: row
+            for row in Hospital.objects.filter(id__in=extra_ids).values(
+                "id", "name", "region__state", "region__country"
+            )
+        }
         for hospital_id in extra_ids:
+            hospital = details.get(hospital_id, {})
             rows.append(
                 {
                     "hospital_id": hospital_id,
-                    "hospital": names.get(hospital_id, "-"),
+                    "hospital": hospital.get("name", "-"),
+                    "state": hospital.get("region__state", "-"),
+                    "country": hospital.get("region__country", "-"),
                     "sales_amount": 0,
                     "sales_quantity": 0,
                     "doctor_visits": doctor_map.get(hospital_id, 0),

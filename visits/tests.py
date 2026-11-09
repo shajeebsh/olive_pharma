@@ -8,7 +8,7 @@ from django.utils import timezone
 from accounts.models import ROLE_ADMIN, ROLE_REP, ROLE_STAFF
 from core.models import AuditLog, Doctor, Hospital, Pharmacy, Product, Region
 
-from .models import DoctorVisit
+from .models import ChemistVisit, DoctorVisit
 from .services import log_doctor_visit
 
 
@@ -52,6 +52,7 @@ class DoctorVisitAccessTests(TestCase):
         self.region = Region.objects.create(name="North")
         self.hospital = Hospital.objects.create(name="City", region=self.region)
         self.doctor = Doctor.objects.create(name="Chen", hospital=self.hospital)
+        self.product = Product.objects.create(name="Cardiolex", sku="CARD-10")
         self.rep = make_user("rep", ROLE_REP)
         self.staff = make_user("staff", ROLE_STAFF)
         self.admin = make_user("admin", ROLE_ADMIN)
@@ -71,6 +72,36 @@ class DoctorVisitAccessTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(DoctorVisit.objects.count(), 1)
         self.assertEqual(DoctorVisit.objects.first().rep, self.rep)
+
+    def test_rep_can_select_products_for_doctor_visit(self):
+        self.client.force_login(self.rep)
+        response = self.client.post(
+            reverse("visits:doctor_create"),
+            {
+                "date": "2026-01-10",
+                "region": self.region.pk,
+                "hospital": self.hospital.pk,
+                "doctor": self.doctor.pk,
+                "products_introduced": [self.product.pk],
+                "notes": "Intro",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        visit = DoctorVisit.objects.get()
+        self.assertEqual(list(visit.products_introduced.all()), [self.product])
+
+    def test_list_shows_state_and_country(self):
+        DoctorVisit.objects.create(
+            rep=self.rep,
+            date="2026-01-10",
+            region=self.region,
+            hospital=self.hospital,
+            doctor=self.doctor,
+        )
+        self.client.force_login(self.rep)
+        response = self.client.get(reverse("visits:doctor_list"))
+        self.assertContains(response, "Kerala")
+        self.assertContains(response, "India")
 
     def test_staff_is_forbidden(self):
         self.client.force_login(self.staff)
@@ -119,6 +150,53 @@ class DoctorVisitAccessTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(DoctorVisit.objects.count(), 1)
+
+
+class ChemistVisitTests(TestCase):
+    def setUp(self):
+        self.region = Region.objects.create(name="Ernakulam")
+        self.hospital = Hospital.objects.create(name="City", region=self.region)
+        self.doctor = Doctor.objects.create(name="Chen", hospital=self.hospital)
+        self.pharmacy = Pharmacy.objects.create(
+            name="Olive", region=self.region, hospital=self.hospital
+        )
+        self.product = Product.objects.create(name="Glucobal", sku="GLU-500")
+        self.rep = make_user("rep", ROLE_REP)
+
+    def test_rep_can_log_product_and_quantity(self):
+        self.client.force_login(self.rep)
+        response = self.client.post(
+            reverse("visits:chemist_create"),
+            {
+                "date": "2026-01-10",
+                "region": self.region.pk,
+                "hospital": self.hospital.pk,
+                "doctor": self.doctor.pk,
+                "pharmacy": self.pharmacy.pk,
+                "current_products": "Cardiolex",
+                "products_needed": [self.product.pk],
+                "quantity": 25,
+                "notes": "Restock",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        visit = ChemistVisit.objects.get()
+        self.assertEqual(visit.quantity, 25)
+        self.assertEqual(list(visit.products_needed.all()), [self.product])
+
+    def test_list_shows_quantity(self):
+        ChemistVisit.objects.create(
+            rep=self.rep,
+            date="2026-01-10",
+            region=self.region,
+            hospital=self.hospital,
+            doctor=self.doctor,
+            pharmacy=self.pharmacy,
+            quantity=40,
+        )
+        self.client.force_login(self.rep)
+        response = self.client.get(reverse("visits:chemist_list"))
+        self.assertContains(response, "40")
 
 
 class FilterOptionsTests(TestCase):

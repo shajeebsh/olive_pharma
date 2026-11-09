@@ -31,6 +31,7 @@ urlpatterns = [
     path("documents/", include(wagtaildocs_urls)),
     path("accounts/", include("django.contrib.auth.urls")),
     path("profile/", include("accounts.urls")),
+    path("products/", include("core.urls")),
     path("visits/", include("visits.urls")),
     path("sales/", include("sales.urls")),
     path("checkin/", include("checkin.urls")),

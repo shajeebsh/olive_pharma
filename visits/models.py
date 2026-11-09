@@ -61,6 +61,10 @@ class ChemistVisit(TimeStampedModel):
     products_needed = models.ManyToManyField(
         Product, related_name="chemist_visits_needed", blank=True
     )
+    quantity = models.PositiveIntegerField(
+        default=1,
+        help_text="Total units requested across the selected products.",
+    )
     notes = models.TextField(blank=True)
 
     objects = ScopedManager()

@@ -37,10 +37,13 @@ class Command(BaseCommand):
             profile.save()
             users[username] = user
 
-        region, _ = Region.objects.get_or_create(name="North", defaults={"code": "N"})
+        region, _ = Region.objects.get_or_create(
+            name="Ernakulam",
+            defaults={"code": "EKM", "state": "Kerala", "country": "India"},
+        )
         hospital, _ = Hospital.objects.get_or_create(
             name="City General Hospital",
-            defaults={"region": region, "city": "Springfield"},
+            defaults={"region": region, "city": "Kochi"},
         )
         doctor, _ = Doctor.objects.get_or_create(
             name="Maya Chen",
@@ -86,6 +89,7 @@ class Command(BaseCommand):
                 "hospital": hospital,
                 "doctor": doctor,
                 "current_products": "Cardiolex",
+                "quantity": 20,
                 "notes": "Requested Glucobal samples.",
             },
         )

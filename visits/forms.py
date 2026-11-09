@@ -37,6 +37,9 @@ class DoctorVisitForm(forms.ModelForm):
         self.fields["hospital"].queryset = Hospital.objects.all()
         self.fields["doctor"].queryset = Doctor.objects.select_related("hospital")
         self.fields["products_introduced"].queryset = Product.objects.filter(active=True)
+        self.fields["products_introduced"].help_text = (
+            "Select one or more products introduced during the visit."
+        )
 
     def clean_date(self):
         value = self.cleaned_data.get("date")
@@ -58,6 +61,7 @@ class ChemistVisitForm(forms.ModelForm):
             "pharmacy",
             "current_products",
             "products_needed",
+            "quantity",
             "notes",
         )
         widgets = {
@@ -68,6 +72,7 @@ class ChemistVisitForm(forms.ModelForm):
             "pharmacy": forms.Select(attrs=SELECT),
             "current_products": forms.Textarea(attrs={**INPUT, "rows": 2}),
             "products_needed": forms.SelectMultiple(attrs=SELECT),
+            "quantity": forms.NumberInput(attrs={**INPUT, "min": 1}),
             "notes": forms.Textarea(attrs={**INPUT, "rows": 3}),
         }
 
@@ -79,6 +84,9 @@ class ChemistVisitForm(forms.ModelForm):
         self.fields["doctor"].queryset = Doctor.objects.select_related("hospital")
         self.fields["pharmacy"].queryset = Pharmacy.objects.all()
         self.fields["products_needed"].queryset = Product.objects.filter(active=True)
+        self.fields["products_needed"].help_text = (
+            "Select the products requested by the pharmacy."
+        )
 
     def clean_date(self):
         value = self.cleaned_data.get("date")
