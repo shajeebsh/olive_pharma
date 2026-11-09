@@ -1,7 +1,9 @@
 from django import forms
-
-from core.models import Doctor, Hospital, Pharmacy, Product, Region
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+
+from core.managers import get_user_role
+from core.models import Doctor, Hospital, Pharmacy, Product, Region
 
 from .models import SalesLog, Target
 
@@ -39,7 +41,8 @@ class SalesLogForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={**INPUT, "rows": 3}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
         super().__init__(*args, **kwargs)
         self.fields["rep"].queryset = get_user_model().objects.filter(is_active=True)
         self.fields["region"].queryset = Region.objects.all()
@@ -47,6 +50,14 @@ class SalesLogForm(forms.ModelForm):
         self.fields["doctor"].queryset = Doctor.objects.select_related("hospital")
         self.fields["pharmacy"].queryset = Pharmacy.objects.all()
         self.fields["product"].queryset = Product.objects.filter(active=True)
+
+    def clean_sales_date(self):
+        value = self.cleaned_data.get("sales_date")
+        if not value:
+            return value
+        if value > timezone.localdate() and get_user_role(self.user) != "admin":
+            raise forms.ValidationError("Date cannot be in the future.")
+        return value
 
     def clean(self):
         cleaned = super().clean()

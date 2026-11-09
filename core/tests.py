@@ -10,6 +10,8 @@ from django.urls import reverse
 from accounts.models import ROLE_ADMIN, ROLE_REP, ROLE_STAFF
 from core.bootstrap import run_startup_tasks, startup_tasks_enabled
 from core.models import Doctor, Hospital, Region
+from core.services.profiling import get_table_stats
+from core.services.seeding import seed_rows
 from visits.models import DoctorVisit
 
 
@@ -49,6 +51,56 @@ class ScopingTests(TestCase):
     def test_admin_and_staff_see_all_visits(self):
         self.assertEqual(DoctorVisit.objects.for_user(self.admin, "rep").count(), 2)
         self.assertEqual(DoctorVisit.objects.for_user(self.staff, "rep").count(), 2)
+
+
+class ProfilingTests(TestCase):
+    def test_table_stats_include_project_models(self):
+        Region.objects.create(name="North")
+        stats = {row["table"]: row for row in get_table_stats()}
+        region_stats = next(
+            row for row in stats.values() if row["model_name"] == "region"
+        )
+        self.assertEqual(region_stats["count"], 1)
+        self.assertIsNotNone(region_stats["latest"])
+        self.assertNotIn("django_session", stats)
+        self.assertNotIn("auth_user", stats)
+
+    def test_admin_profiling_requires_staff(self):
+        response = self.client.get(reverse("admin_db_profiling"))
+        self.assertEqual(response.status_code, 302)
+
+        staff = get_user_model().objects.create_superuser(
+            username="admin", password="password123", email="admin@example.com"
+        )
+        self.client.force_login(staff)
+        response = self.client.get(reverse("admin_db_profiling"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "DB Profiling")
+
+    def test_admin_index_links_to_profiling(self):
+        staff = get_user_model().objects.create_superuser(
+            username="admin", password="password123", email="admin@example.com"
+        )
+        self.client.force_login(staff)
+        response = self.client.get(reverse("admin:index"))
+        self.assertContains(response, "DB Profiling")
+
+    def test_seed_rows_creates_sample_data(self):
+        created = seed_rows("core.Region", 2)
+        self.assertGreaterEqual(created, 1)
+        self.assertGreaterEqual(Region.objects.count(), 1)
+
+    def test_seed_view_creates_rows(self):
+        staff = get_user_model().objects.create_superuser(
+            username="admin", password="password123", email="admin@example.com"
+        )
+        self.client.force_login(staff)
+        response = self.client.post(
+            reverse("admin_db_profiling_seed"),
+            {"model": "core.Region", "rows": "2"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertGreaterEqual(Region.objects.count(), 1)
 
 
 class HealthTests(TestCase):

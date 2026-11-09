@@ -26,3 +26,83 @@
     </div>
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var endpoint = "{% url 'visits:filter_options' %}";
+    var region = document.getElementById("id_region");
+    var hospital = document.getElementById("id_hospital");
+    var doctor = document.getElementById("id_doctor");
+
+    function reset(select) {
+        if (select) {
+            select.innerHTML = '<option value="">---------</option>';
+        }
+    }
+
+    function fill(select, items, selected) {
+        reset(select);
+        items.forEach(function (item) {
+            var option = document.createElement("option");
+            option.value = item.id;
+            option.textContent = item.text;
+            option.selected = String(item.id) === String(selected);
+            select.appendChild(option);
+        });
+    }
+
+    function load(params) {
+        var query = new URLSearchParams(params).toString();
+        return fetch(endpoint + "?" + query, {
+            headers: { "Accept": "application/json" }
+        }).then(function (response) {
+            if (!response.ok) { throw new Error("Request failed"); }
+            return response.json();
+        }).then(function (data) {
+            return data.results || [];
+        }).catch(function () {
+            return [];
+        });
+    }
+
+    if (region && hospital) {
+        region.addEventListener("change", function () {
+            reset(hospital);
+            reset(doctor);
+            if (!region.value) { return; }
+            load({ type: "hospital", region: region.value }).then(function (items) {
+                fill(hospital, items, "");
+            });
+        });
+    }
+
+    if (hospital && doctor) {
+        hospital.addEventListener("change", function () {
+            reset(doctor);
+            if (!hospital.value) { return; }
+            load({ type: "doctor", hospital: hospital.value }).then(function (items) {
+                fill(doctor, items, "");
+            });
+        });
+    }
+
+    if (region && hospital && region.value) {
+        var selectedHospital = hospital.value;
+        var selectedDoctor = doctor ? doctor.value : "";
+        load({ type: "hospital", region: region.value }).then(function (items) {
+            fill(hospital, items, selectedHospital);
+            if (!hospital.value) {
+                reset(doctor);
+                return;
+            }
+            if (doctor) {
+                load({ type: "doctor", hospital: hospital.value }).then(function (docs) {
+                    fill(doctor, docs, selectedDoctor);
+                });
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}

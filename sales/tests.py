@@ -1,8 +1,10 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import ROLE_ADMIN, ROLE_REP, ROLE_STAFF
 from core.models import AuditLog, Doctor, Hospital, Pharmacy, Product, Region
@@ -70,6 +72,27 @@ class SalesEntryTests(SalesTestBase):
             self.client.get(reverse("sales:create")).status_code, 403
         )
         self.assertEqual(self.client.get(reverse("sales:list")).status_code, 200)
+
+    def test_future_sale_is_rejected_for_staff(self):
+        self.client.force_login(self.staff)
+        payload = self.sales_payload()
+        payload["sales_date"] = (
+            timezone.localdate() + timedelta(days=1)
+        ).isoformat()
+        response = self.client.post(reverse("sales:create"), payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "cannot be in the future")
+        self.assertEqual(SalesLog.objects.count(), 0)
+
+    def test_future_sale_is_allowed_for_admin(self):
+        self.client.force_login(self.admin)
+        payload = self.sales_payload()
+        payload["sales_date"] = (
+            timezone.localdate() + timedelta(days=1)
+        ).isoformat()
+        response = self.client.post(reverse("sales:create"), payload)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(SalesLog.objects.count(), 1)
 
 
 class TargetAttainmentTests(SalesTestBase):

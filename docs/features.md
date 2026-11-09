@@ -219,13 +219,18 @@ Form fields (`visits/forms.py`):
 
 | Field | Type | Notes |
 |-------|------|-------|
-| Date | Date picker | Required. |
+| Date | Date picker | Required. Rejects dates after today (Admin exempt). |
 | Region | Select | Required; all regions. |
-| Hospital | Select | Required; all hospitals. |
-| Doctor | Select | Required; doctors with their hospital preloaded. |
+| Hospital | Select | Required; filtered by the selected region. |
+| Doctor | Select | Required; filtered by the selected hospital. |
 | Products introduced | Multi-select | Optional at the form level; active products only. |
 | Notes | Textarea | Optional; 3 rows. |
 
+- **Dependent dropdowns**: changing Region reloads and resets Hospital and Doctor;
+  changing Hospital reloads and resets Doctor. The options come from the JSON endpoint
+  `/visits/filter-options/` (`visits:filter_options`), backed by `visits.views.filter_options`.
+- **Future-date validation**: representatives cannot log a visit dated after today;
+  admins are exempt so they can correct or pre-enter records.
 - Submit creates the visit through `log_doctor_visit()`, which sets the logged-in user as
   the representative and attaches the selected products.
 - Emits the `doctor_visit_logged` signal.
@@ -266,15 +271,20 @@ Form fields (`visits/forms.py`):
 
 | Field | Type | Notes |
 |-------|------|-------|
-| Date | Date picker | Required. |
+| Date | Date picker | Required. Rejects dates after today (Admin exempt). |
 | Region | Select | Required; all regions. |
-| Hospital | Select | Required; all hospitals. |
-| Doctor | Select | Required; the doctor whose locality is being covered. |
-| Pharmacy | Select | Required; all pharmacies. |
+| Hospital | Select | Required; filtered by the selected region. |
+| Doctor | Select | Required; filtered by the selected hospital. |
+| Pharmacy | Select | Required; filtered by the selected hospital. |
 | Current products | Textarea | Optional; what the pharmacy currently stocks. |
 | Products needed | Multi-select | Optional at the form level; active products only. |
 | Notes | Textarea | Optional; 3 rows. |
 
+- **Dependent dropdowns**: changing Region reloads and resets Hospital, Doctor and
+  Pharmacy; changing Hospital reloads and resets Doctor and Pharmacy. Options come from
+  `/visits/filter-options/` (`visits:filter_options`).
+- **Future-date validation**: representatives cannot log a visit dated after today;
+  admins are exempt.
 - Submit creates the visit through `log_chemist_visit()`, which sets the logged-in user
   as the representative and attaches the needed products.
 - Emits the `chemist_visit_logged` signal.
@@ -326,7 +336,7 @@ Form fields (`sales/forms.py`):
 | Field | Type | Notes |
 |-------|------|-------|
 | Representative | Select | Required; active users. |
-| Sales date | Date picker | Required. |
+| Sales date | Date picker | Required. Rejects dates after today (Admin exempt). |
 | Region | Select | Required. |
 | Hospital | Select | Required. |
 | Doctor | Select | Required. |
@@ -346,6 +356,8 @@ Features and rules:
 - **Duplicate protection**: when a reference is supplied it must be unique per
   representative. Enforced in the form and by the database constraint
   `unique_sales_reference_per_rep`.
+- **Future-date validation**: staff cannot log a sale dated after today; admins are
+  exempt.
 - Success message: "Sales entry logged." and redirect to the list.
 - **Back** and **Cancel** return to the list.
 
@@ -545,7 +557,36 @@ Registered models and features:
 - **Target** - list rep/period/dates/product/targets, period/date filters, search.
 - **CheckInOut** - list user/date/times, date filter, search, date drill-down.
 
-### 11.2 Wagtail CMS
+### 11.2 DB profiling
+
+**Routes**:
+- `/django-admin/db-profiling/` (`admin_db_profiling`; also mounted under the Region
+  admin as `admin:db_profiling`)
+- `/django-admin/db-profiling/seed/` (`admin_db_profiling_seed`; also
+  `admin:db_profiling_seed`)
+**Access**: Django staff/superuser only (`admin.site.admin_view`).
+**Templates**: `templates/admin/index.html`, `templates/admin/core/db_profiling.html`
+**Views**: `core.admin_views.db_profiling_view`, `seed_table_view`
+**Services**: `core.services.profiling.get_table_stats`,
+`core.services.seeding.seed_rows`, `seedable_models`
+
+Features:
+- Added to the Django admin index as a **Database tools → DB Profiling** module.
+- Table statistics for every project model (`accounts`, `checkin`, `cms`, `core`,
+  `dashboard`, `sales`, `visits`): app, model, database table, row count and latest
+  timestamp. Framework tables (auth, sessions, admin, Wagtail internals, etc.) are
+  skipped.
+- Latest timestamp uses `updated_at`, then `created_at`, then the first available
+  `DateTimeField`.
+- Inline **Seed sample data** form: choose a supported project model and row count
+  (1-1000), then submit. Rows are generated with Faker; related masters/users are reused
+  or created as needed.
+- Seedable models: Region, Hospital, Doctor, Pharmacy, Product, AuditLog, DoctorVisit,
+  ChemistVisit, SalesLog, Target and CheckInOut.
+- Success and error feedback appears as Django admin messages.
+- CLI equivalent: `python manage.py seed_table <app.Model> --rows <n>`.
+
+### 11.3 Wagtail CMS
 
 **Route**: `/cms/` (Wagtail admin)
 **Access**: Wagtail permissions.
@@ -606,7 +647,9 @@ Django messages render as dismissible Bootstrap alerts after create actions.
 |---------|-----------------|---------|
 | Health check | `/health/` | JSON report of database connectivity and applied migrations; returns `200` when healthy and `503` with `"migrations": "missing"` otherwise. |
 | Seed demo data | `python manage.py seed_demo` | Creates demo users (`admin`, `rep`, `staff` / `password123`), masters, visits, a sale, a target and a check-in. |
+| Seed a table | `python manage.py seed_table <app.Model> --rows <n>` | Creates Faker-based sample rows for a supported project model (1-1000 rows). |
 | Ensure superuser | `python manage.py ensure_superuser` | Creates/updates a deployment admin from `DJANGO_SUPERUSER_*` environment variables and sets the `admin` role. |
+| Filter options API | `/visits/filter-options/` | JSON endpoint used by the dependent dropdowns. Accepts `type=hospital&region=<id>`, `type=doctor&hospital=<id>` or `type=pharmacy&hospital=<id>`. |
 
 ---
 
@@ -626,6 +669,9 @@ Django messages render as dismissible Bootstrap alerts after create actions.
 | Profile | `accounts` | `models.UserProfile`, `views.ProfileView`, `forms.ProfileForm` |
 | Menu and access | `core` | `navigation.py`, `permissions.py`, `middleware.py`, `managers.py` |
 | Masters and audit | `core` | `models.py`, `admin.py` |
+| Dependent dropdowns | `visits` | `views.filter_options`, `visits/urls.py`, `visits/doctor_form.html`, `visits/chemist_form.html` |
+| DB profiling | `core` | `services/profiling.py`, `admin_views.py`, `admin.py`, `templates/admin/core/db_profiling.html` |
+| Sample-data seeding | `core` | `services/seeding.py`, `management/commands/seed_table.py` |
 | Login/logout | Django auth | `config/urls.py`, `templates/registration/` |
 | CMS | `cms` | `models.py`, `wagtail_hooks.py` |
 
@@ -636,9 +682,8 @@ Django messages render as dismissible Bootstrap alerts after create actions.
 The following behaviours are specified in `docs/field-activity.md` but are not fully
 implemented in the current UI. They are documented here so the docs match the code.
 
-- **Dependent dropdowns**: Doctor region/hospital/doctor/pharmacy selects are not
-  dynamically filtered by each other; all records are listed.
-- **Future-date validation**: Visit and sales forms do not yet reject future dates.
+- **Dependent dropdowns on Sales**: the cascade is wired only on the Meet Doctor and Meet
+  Chemist forms. The Sales entry form still lists all masters independently.
 - **Required products**: Products introduced/needed are optional at the form level even
   though the specification marks them as required.
 - **Target attainment UI**: `target_attainment()` is implemented but not displayed on a

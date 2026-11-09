@@ -1,5 +1,7 @@
 from django.contrib import admin
+from django.urls import path
 
+from .admin_views import db_profiling_view, seed_table_view
 from .models import AuditLog, Doctor, Hospital, Pharmacy, Product, Region
 
 
@@ -7,6 +9,14 @@ from .models import AuditLog, Doctor, Hospital, Pharmacy, Product, Region
 class RegionAdmin(admin.ModelAdmin):
     list_display = ("name", "code")
     search_fields = ("name", "code")
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path("db-profiling/", db_profiling_view, name="db_profiling"),
+            path("db-profiling/seed/", seed_table_view, name="db_profiling_seed"),
+        ]
+        return custom + urls
 
 
 @admin.register(Hospital)

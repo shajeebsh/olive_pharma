@@ -44,6 +44,7 @@ with monthly, representative-wise, and hospital-wise reporting.
 | Database | SQLite (dev) / PostgreSQL (prod) | — |
 | DB driver | psycopg2-binary + dj-database-url | 2.9 / 2.1 |
 | Config | python-decouple | 3.8+ |
+| Sample data | Faker (admin seeding tool) | 25+ |
 | Frontend | Django Templates, Bootstrap 5.3, Chart.js | — |
 | Icons / Font | Bootstrap Icons, Inter (Google Fonts) | — |
 | Authentication | Django Auth (session-based) | — |
@@ -99,7 +100,11 @@ olive_pharma/
 │   ├── context_processors.py # NAV_ITEMS + USER_ROLE
 │   ├── middleware.py         # RoleAccessMiddleware (path-level role checks)
 │   ├── bootstrap.py          # WSGI startup migrate + ensure_superuser safety net
+│   ├── admin_views.py        # DB profiling + sample-seed admin views
+│   ├── services/profiling.py # Project table row counts + latest timestamps
+│   ├── services/seeding.py   # Faker-based sample row generators
 │   ├── management/commands/seed_demo.py
+│   ├── management/commands/seed_table.py
 │   └── views.py              # health (DB + migrations), help redirect
 │
 ├── accounts/                 # UserProfile (roles), profile view, signals
@@ -123,6 +128,7 @@ olive_pharma/
     ├── sales/                # list/form, target_list/form
     ├── checkin/              # list, check_in, check_out
     ├── accounts/             # profile
+    ├── admin/                # Django admin index override + DB profiling page
     ├── cms/                  # Wagtail page templates
     └── help.html
 ```
@@ -139,7 +145,10 @@ olive_pharma/
 | `/accounts/` | django.contrib.auth | Login/logout |
 | `/profile/` | accounts | User profile (`accounts:profile`) |
 | `/django-admin/` | admin | Django admin |
+| `/django-admin/db-profiling/` | core | DB profiling page (`admin_db_profiling`) |
+| `/django-admin/db-profiling/seed/` | core | Seed sample rows (`admin_db_profiling_seed`) |
 | `/cms/` | wagtail.admin | Wagtail CMS admin |
+| `/visits/filter-options/` | visits | Dependent-dropdown JSON (`filter_options`) |
 | `/visits/doctor/` | visits | Meet Doctor list/create (`doctor_list`, `doctor_create`) |
 | `/visits/chemist/` | visits | Meet Chemist list/create (`chemist_list`, `chemist_create`) |
 | `/sales/` | sales | Sales list/create (`list`, `create`) |
@@ -153,7 +162,9 @@ olive_pharma/
 
 - `dashboard:home`, `dashboard:reports`, `dashboard:export`
 - `visits:doctor_list`, `visits:doctor_create`, `visits:chemist_list`,
-  `visits:chemist_create`
+  `visits:chemist_create`, `visits:filter_options`
+- `admin_db_profiling`, `admin_db_profiling_seed`
+- `admin:db_profiling`, `admin:db_profiling_seed` (Region admin mount)
 - `sales:list`, `sales:create`, `sales:target_list`, `sales:target_create`
 - `checkin:list`, `checkin:check_in`, `checkin:check_out`
 - `accounts:profile`
@@ -186,6 +197,9 @@ olive_pharma/
   `doctor_visit_logged` / `chemist_visit_logged`
 - Receivers write `AuditLog` rows
 - Reps/admins access visit screens; reps are scoped to their own records
+- Dependent dropdowns on both visit forms: hospital by region, doctor/pharmacy by
+  hospital, served by `visits:filter_options`; child selects reset on parent change
+- Future-date validation on doctor/chemist visit and sales forms; admins are exempt
 
 ### 4.4 Sales & Targets
 - **Manual Sales**: staff/admin enter sales matched by representative, region, hospital,
@@ -207,7 +221,15 @@ olive_pharma/
 - `SiteSetting` snippet
 - Admin at `/cms/`; page serving falls back at the root after app URLs
 
-### 4.7 "Trusted Innovator" Theme
+### 4.7 DB Profiling and Sample Data
+- Django admin index has a **Database tools → DB Profiling** link
+- `/django-admin/db-profiling/` shows row count and latest timestamp per project model,
+  skipping framework tables
+- Inline seed form generates Faker-based sample rows for supported project models
+- `python manage.py seed_table <app.Model> --rows <n>` provides the same seeding from
+  the CLI
+
+### 4.8 "Trusted Innovator" Theme
 
 | Role | Color | Hex |
 |------|-------|-----|
@@ -341,6 +363,9 @@ python manage.py ensure_superuser
 # Seed demo users and sample data
 python manage.py seed_demo
 
+# Seed Faker-based rows for a specific project model
+python manage.py seed_table visits.DoctorVisit --rows 10
+
 # Run tests
 python manage.py test
 ```
@@ -375,6 +400,20 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 ---
 
 ## 11. Change Log
+
+### November 2026 - Dependent Dropdowns, Date Validation, DB Profiling
+- Added `visits:filter_options` JSON endpoint and vanilla JS on the Meet Doctor and Meet
+  Chemist forms so hospital options follow the region and doctor/pharmacy options follow
+  the hospital; child selects reset when a parent changes.
+- Added future-date validation to doctor visits, chemist visits and sales entries.
+  Admins are exempt so they can correct or pre-enter records.
+- Added `core.services.profiling.get_table_stats()` and the admin DB profiling page at
+  `/django-admin/db-profiling/`, linked from the Django admin index. It lists row counts
+  and latest timestamps for project models only.
+- Added `core.services.seeding` plus `python manage.py seed_table` and the profiling
+  page's inline seed form for Faker-based sample rows.
+- Added `templates/admin/index.html` and `templates/admin/core/db_profiling.html`.
+- Added `Faker` to `requirements.txt` and updated `docs/features.md`.
 
 ### November 2026 - Features by Menu Documentation
 - Added `docs/features.md` documenting every implemented feature grouped by navigation

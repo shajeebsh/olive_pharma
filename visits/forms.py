@@ -1,5 +1,7 @@
 from django import forms
+from django.utils import timezone
 
+from core.managers import get_user_role
 from core.models import Doctor, Hospital, Pharmacy, Product, Region
 
 from .models import ChemistVisit, DoctorVisit
@@ -28,12 +30,21 @@ class DoctorVisitForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={**INPUT, "rows": 3}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
         super().__init__(*args, **kwargs)
         self.fields["region"].queryset = Region.objects.all()
         self.fields["hospital"].queryset = Hospital.objects.all()
         self.fields["doctor"].queryset = Doctor.objects.select_related("hospital")
         self.fields["products_introduced"].queryset = Product.objects.filter(active=True)
+
+    def clean_date(self):
+        value = self.cleaned_data.get("date")
+        if not value:
+            return value
+        if value > timezone.localdate() and get_user_role(self.user) != "admin":
+            raise forms.ValidationError("Date cannot be in the future.")
+        return value
 
 
 class ChemistVisitForm(forms.ModelForm):
@@ -60,10 +71,19 @@ class ChemistVisitForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={**INPUT, "rows": 3}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
         super().__init__(*args, **kwargs)
         self.fields["region"].queryset = Region.objects.all()
         self.fields["hospital"].queryset = Hospital.objects.all()
         self.fields["doctor"].queryset = Doctor.objects.select_related("hospital")
         self.fields["pharmacy"].queryset = Pharmacy.objects.all()
         self.fields["products_needed"].queryset = Product.objects.filter(active=True)
+
+    def clean_date(self):
+        value = self.cleaned_data.get("date")
+        if not value:
+            return value
+        if value > timezone.localdate() and get_user_role(self.user) != "admin":
+            raise forms.ValidationError("Date cannot be in the future.")
+        return value
