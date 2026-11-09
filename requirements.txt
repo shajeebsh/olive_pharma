@@ -8,6 +8,9 @@ psycopg2-binary>=2.9
 # Configuration
 python-decouple>=3.8
 
+# Sample-data generation (admin DB profiling seed tool)
+Faker>=25.0
+
 # Serving / deployment
 gunicorn>=21.2
 whitenoise>=6.6

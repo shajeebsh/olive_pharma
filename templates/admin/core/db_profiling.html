@@ -1,0 +1,75 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; DB Profiling
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <div class="module" id="seed-module">
+    <h2>Seed sample data</h2>
+    <form method="post" action="{% url 'admin_db_profiling_seed' %}">
+      {% csrf_token %}
+      <div class="form-row">
+        <div>
+          <label for="id_model">Model</label>
+          <select name="model" id="id_model" required>
+            {% for model in seedable_models %}
+            <option value="{{ model.label }}">{{ model.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="id_rows">Rows</label>
+          <input type="number" name="rows" id="id_rows" value="10" min="1" max="1000" required>
+        </div>
+      </div>
+      <div class="submit-row">
+        <input type="submit" class="default" value="Seed rows">
+      </div>
+    </form>
+    <p class="help">Sample rows are generated with Faker. Related masters and users are reused or created as needed.</p>
+  </div>
+
+  <div class="module" id="db-profiling-module">
+    <h2>Table statistics</h2>
+    <div class="results">
+      <table id="result_list">
+        <thead>
+          <tr>
+            <th scope="col">App</th>
+            <th scope="col">Model</th>
+            <th scope="col">Table</th>
+            <th scope="col">Rows</th>
+            <th scope="col">Latest</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in stats %}
+          <tr>
+            <td>{{ row.app_name }}</td>
+            <td>{{ row.model_verbose_name }} <span class="mini quiet">({{ row.model_name }})</span></td>
+            <td><code>{{ row.table }}</code></td>
+            <td>{% if row.count is not None %}{{ row.count }}{% else %}—{% endif %}</td>
+            <td>
+              {% if row.latest %}
+                {{ row.latest|date:"d M Y H:i" }}
+                <span class="mini quiet">({{ row.latest_field }})</span>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5">No project tables found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

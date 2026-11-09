@@ -30,6 +30,11 @@ class SalesLogCreateView(RoleRequiredMixin, CreateView):
     form_class = SalesLogForm
     template_name = "sales/form.html"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         log_sales(data=form.cleaned_data, entered_by=self.request.user)
         messages.success(self.request, "Sales entry logged.")
