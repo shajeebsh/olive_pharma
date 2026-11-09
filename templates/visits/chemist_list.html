@@ -22,8 +22,12 @@
                     <th>Pharmacy</th>
                     <th>Doctor</th>
                     <th>Hospital</th>
+                    <th>Region</th>
+                    <th>State</th>
+                    <th>Country</th>
                     <th>Representative</th>
                     <th>Products needed</th>
+                    <th class="text-end">Qty</th>
                 </tr>
             </thead>
             <tbody>
@@ -33,6 +37,9 @@
                     <td>{{ visit.pharmacy }}</td>
                     <td>{{ visit.doctor }}</td>
                     <td>{{ visit.hospital }}</td>
+                    <td>{{ visit.region.name }}</td>
+                    <td>{{ visit.region.state }}</td>
+                    <td>{{ visit.region.country }}</td>
                     <td>{{ visit.rep.username }}</td>
                     <td>
                         {% for product in visit.products_needed.all %}
@@ -41,9 +48,10 @@
                         <span class="text-muted">—</span>
                         {% endfor %}
                     </td>
+                    <td class="text-end">{{ visit.quantity }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="empty-state">No chemist visits logged yet.</td></tr>
+                <tr><td colspan="10" class="empty-state">No chemist visits logged yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

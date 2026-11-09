@@ -16,6 +16,7 @@ EXEMPT_PREFIXES = (
 ROLE_PATHS = (
     ("/sales/new/", {"admin", "staff"}),
     ("/sales/", {"admin", "staff", "rep"}),
+    ("/products/", {"admin"}),
     ("/visits/", {"admin", "rep"}),
     ("/checkin/", {"admin", "rep", "staff"}),
 )

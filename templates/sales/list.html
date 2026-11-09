@@ -32,6 +32,9 @@
                     <th class="text-end">Amount</th>
                     <th>Pharmacy</th>
                     <th>Hospital</th>
+                    <th>Region</th>
+                    <th>State</th>
+                    <th>Country</th>
                     <th>Reference</th>
                 </tr>
             </thead>
@@ -45,10 +48,13 @@
                     <td class="text-end">{{ sale.amount|floatformat:2 }}</td>
                     <td>{{ sale.pharmacy }}</td>
                     <td>{{ sale.hospital }}</td>
+                    <td>{{ sale.region.name }}</td>
+                    <td>{{ sale.region.state }}</td>
+                    <td>{{ sale.region.country }}</td>
                     <td>{{ sale.reference|default:"—" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="8" class="empty-state">No sales recorded yet.</td></tr>
+                <tr><td colspan="11" class="empty-state">No sales recorded yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

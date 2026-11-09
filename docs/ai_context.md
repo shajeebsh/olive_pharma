@@ -92,17 +92,20 @@ olive_pharma/
 │   └── asgi.py               # ASGI config (config.settings.dev)
 │
 ├── core/                     # Shared masters, managers, audit, navigation, health
-│   ├── models.py             # TimeStampedModel, AuditLog, Region, Hospital, Doctor,
-│   │                         # Pharmacy, Product
+│   ├── models.py             # TimeStampedModel, AuditLog, Region (state/country),
+│   │                         # Hospital, Doctor, Pharmacy, Product
 │   ├── managers.py           # ScopedQuerySet/ScopedManager, get_user_role
 │   ├── permissions.py        # role_required, RoleRequiredMixin
 │   ├── navigation.py         # NAV_REGISTRY + nav_for_role
 │   ├── context_processors.py # NAV_ITEMS + USER_ROLE
 │   ├── middleware.py         # RoleAccessMiddleware (path-level role checks)
 │   ├── bootstrap.py          # WSGI startup migrate + ensure_superuser safety net
+│   ├── forms.py              # ProductForm
+│   ├── product_views.py      # Product list/create/update/delete (Admin)
+│   ├── urls.py               # Product routes under /products/
 │   ├── admin_views.py        # DB profiling + sample-seed admin views
 │   ├── services/profiling.py # Project table row counts + latest timestamps
-│   ├── services/seeding.py   # Faker-based sample row generators
+│   ├── services/seeding.py   # Faker-based sample row generators + Kerala districts
 │   ├── management/commands/seed_demo.py
 │   ├── management/commands/seed_table.py
 │   └── views.py              # health (DB + migrations), help redirect
@@ -126,6 +129,7 @@ olive_pharma/
     ├── dashboard/            # home, reports, _filters, _kpi_card
     ├── visits/               # doctor_list/form, chemist_list/form
     ├── sales/                # list/form, target_list/form
+    ├── core/                 # product list/form/delete
     ├── checkin/              # list, check_in, check_out
     ├── accounts/             # profile
     ├── admin/                # Django admin index override + DB profiling page
@@ -144,6 +148,10 @@ olive_pharma/
 | `/reports/export/` | dashboard | CSV export (`dashboard:export`) |
 | `/accounts/` | django.contrib.auth | Login/logout |
 | `/profile/` | accounts | User profile (`accounts:profile`) |
+| `/products/` | core | Product list (`products:product_list`) |
+| `/products/new/` | core | Create product (`products:product_create`) |
+| `/products/<id>/edit/` | core | Edit product (`products:product_update`) |
+| `/products/<id>/delete/` | core | Delete product (`products:product_delete`) |
 | `/django-admin/` | admin | Django admin |
 | `/django-admin/db-profiling/` | core | DB profiling page (`admin_db_profiling`) |
 | `/django-admin/db-profiling/seed/` | core | Seed sample rows (`admin_db_profiling_seed`) |
@@ -166,6 +174,8 @@ olive_pharma/
 - `admin_db_profiling`, `admin_db_profiling_seed`
 - `admin:db_profiling`, `admin:db_profiling_seed` (Region admin mount)
 - `sales:list`, `sales:create`, `sales:target_list`, `sales:target_create`
+- `products:product_list`, `products:product_create`, `products:product_update`,
+  `products:product_delete`
 - `checkin:list`, `checkin:check_in`, `checkin:check_out`
 - `accounts:profile`
 - Django auth names are unnamespaced: `login`, `logout`
@@ -200,6 +210,9 @@ olive_pharma/
 - Dependent dropdowns on both visit forms: hospital by region, doctor/pharmacy by
   hospital, served by `visits:filter_options`; child selects reset on parent change
 - Future-date validation on doctor/chemist visit and sales forms; admins are exempt
+- Doctor visits support selecting one or more products introduced
+- Chemist visits support selecting products needed plus a requested quantity
+- Region labels include state and country; region seed data uses Kerala districts
 
 ### 4.4 Sales & Targets
 - **Manual Sales**: staff/admin enter sales matched by representative, region, hospital,
@@ -212,6 +225,7 @@ olive_pharma/
 ### 4.5 Reporting
 - Server-rendered tabs: Monthly, Representatives, Hospitals, Products
 - Filters shared across tabs: date range, representative, hospital, product
+- Hospital rows include state and country
 - CSV export per report honouring the active filters
 - Chart.js visualisation for each tab
 - Scoping via `ScopedManager.for_user`: reps see their own data; admin/staff company-wide
@@ -226,10 +240,19 @@ olive_pharma/
 - `/django-admin/db-profiling/` shows row count and latest timestamp per project model,
   skipping framework tables
 - Inline seed form generates Faker-based sample rows for supported project models
+- Region seeding uses the 14 Kerala districts with state `Kerala` and country `India`
 - `python manage.py seed_table <app.Model> --rows <n>` provides the same seeding from
   the CLI
 
-### 4.8 "Trusted Innovator" Theme
+### 4.8 Products (Admin)
+- `products:product_list` at `/products/` lists the catalogue with search and
+  active/inactive filtering
+- `products:product_create`, `products:product_update` and `products:product_delete`
+  provide admin-only CRUD
+- Only active products appear in visit, sales and target forms
+- Products referenced by sales cannot be deleted; mark them inactive instead
+
+### 4.9 "Trusted Innovator" Theme
 
 | Role | Color | Hex |
 |------|-------|-----|
@@ -400,6 +423,22 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 ---
 
 ## 11. Change Log
+
+### November 2026 - Products, Kerala Regions, State/Country, Visit Quantities
+- Added `Region.state` and `Region.country` (defaults `Kerala` / `India`) and updated
+  region labels to `Name (State, Country)`.
+- Region sample data now uses the 14 Kerala districts instead of random Faker cities;
+  `seed_demo` uses Ernakulam/Kerala/India.
+- Added state and country to doctor-visit, chemist-visit and sales lists, the dashboard
+  hospital breakdown, the Hospitals report, Region admin, and related admin displays.
+- Added the Admin-only Products page at `/products/` with list, search, status filter,
+  create, edit and delete. Deletion is blocked for products referenced by sales.
+- Added `ChemistVisit.quantity` and exposed "Products needed" + quantity on the New
+  Chemist Visit form and list.
+- Verified and documented doctor visit product selection (multiple products introduced).
+- Added migrations `core.0002_region_country_region_state` and
+  `visits.0002_chemistvisit_quantity`, plus tests for products, seeding, state/country
+  display and chemist quantity.
 
 ### November 2026 - Dependent Dropdowns, Date Validation, DB Profiling
 - Added `visits:filter_options` JSON endpoint and vanilla JS on the Meet Doctor and Meet

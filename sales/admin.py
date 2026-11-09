@@ -27,6 +27,7 @@ class SalesLogAdmin(admin.ModelAdmin):
         "quantity",
         "amount",
         "pharmacy",
+        "region",
         "entered_by",
     )
     list_filter = ("sales_date", "region", "product")

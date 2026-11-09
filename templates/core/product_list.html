@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Products{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h1 class="page-title">Products</h1>
+        <p class="page-subtitle">Add, edit and retire products used in visits and sales.</p>
+    </div>
+    <a href="{% url 'products:product_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i> New product
+    </a>
+</div>
+
+<form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-12 col-md-5">
+        <label class="form-label" for="product-search">Search</label>
+        <input type="search" class="form-control" id="product-search" name="q"
+               value="{{ query }}" placeholder="Name, SKU, form or strength">
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label" for="product-active">Status</label>
+        <select class="form-select" id="product-active" name="active">
+            <option value=""{% if not active_filter %} selected{% endif %}>All</option>
+            <option value="1"{% if active_filter == "1" %} selected{% endif %}>Active</option>
+            <option value="0"{% if active_filter == "0" %} selected{% endif %}>Inactive</option>
+        </select>
+    </div>
+    <div class="col-12 col-md-auto d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+        <a href="{% url 'products:product_list' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+    </div>
+</form>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>SKU</th>
+                    <th>Form</th>
+                    <th>Strength</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr>
+                    <td>{{ product.name }}</td>
+                    <td>{{ product.sku }}</td>
+                    <td>{{ product.form|default:"—" }}</td>
+                    <td>{{ product.strength|default:"—" }}</td>
+                    <td>
+                        {% if product.active %}
+                        <span class="badge badge-soft-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'products:product_update' product.pk %}"
+                           class="btn btn-outline-secondary btn-sm">Edit</a>
+                        <a href="{% url 'products:product_delete' product.pk %}"
+                           class="btn btn-outline-danger btn-sm">Delete</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="empty-state">No products found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include "partials/pagination.html" %}
+{% endblock %}

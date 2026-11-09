@@ -39,6 +39,8 @@ REPORTS = {
         "label": "Hospitals",
         "columns": [
             ("hospital", "Hospital"),
+            ("state", "State"),
+            ("country", "Country"),
             ("doctor_visits", "Doctor Visits"),
             ("chemist_visits", "Chemist Visits"),
             ("sales_quantity", "Quantity"),

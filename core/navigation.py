@@ -5,6 +5,7 @@ NAV_REGISTRY = {
         {"label": "Meet Doctor", "url_name": "visits:doctor_list", "icon": "bi-person-badge"},
         {"label": "Meet Chemist", "url_name": "visits:chemist_list", "icon": "bi-capsule"},
         {"label": "Sales", "url_name": "sales:list", "icon": "bi-cash-stack"},
+        {"label": "Products", "url_name": "products:product_list", "icon": "bi-box-seam"},
         {"label": "Check In/Out", "url_name": "checkin:list", "icon": "bi-clock"},
         {"label": "Help", "url_name": "help", "icon": "bi-question-circle"},
     ],

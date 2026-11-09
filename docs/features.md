@@ -34,13 +34,14 @@ Main navigation is defined in `core/navigation.py` and rendered by
 | Meet Doctor | `/visits/doctor/` | Yes | Yes | No |
 | Meet Chemist | `/visits/chemist/` | Yes | Yes | No |
 | Sales | `/sales/` | Yes | No* | Yes |
+| Products | `/products/` | Yes | No | No |
 | Check In/Out | `/checkin/` | Yes | Yes | Yes |
 | Help | `/help/` | Yes | No** | No** |
 
 \* Representatives can still open `/sales/` directly and see their own sales; the Sales
 entry is simply not shown in their main navigation.
 \** Help is available to every authenticated user from the user menu (see
-[User Menu](#8-user-menu)).
+[User Menu](#10-user-menu)).
 
 ### User menu (available on every authenticated page)
 
@@ -56,6 +57,7 @@ entry is simply not shown in their main navigation.
 - `core.middleware.RoleAccessMiddleware` enforces path-level rules:
   - `/sales/new/` - Admin, Staff
   - `/sales/` - Admin, Staff, Representative
+  - `/products/` - Admin
   - `/visits/` - Admin, Representative
   - `/checkin/` - Admin, Staff, Representative
 - `ScopedQuerySet.for_user()` filters data:
@@ -118,8 +120,8 @@ start at zero on the Y axis.
 #### Breakdown tables
 - **Representative breakdown** (top 10 by sales amount): representative, doctor visits,
   chemist visits, check-ins, sales amount.
-- **Hospital breakdown** (top 10 by sales amount): hospital, doctor visits, chemist
-  visits, sales amount.
+- **Hospital breakdown** (top 10 by sales amount): hospital, state, country, doctor
+  visits, chemist visits, sales amount.
 - **Recent activity**: latest 5 doctor/chemist visits combined, showing type, date,
   representative, outlet (doctor or pharmacy) and hospital.
 
@@ -154,7 +156,7 @@ Tab switching preserves the active filters.
 |-----|---------|
 | **Monthly** | Month, Doctor Visits, Chemist Visits, Quantity, Sales Amount |
 | **Representatives** | Representative, Doctor Visits, Chemist Visits, Check-ins, Quantity, Sales Amount |
-| **Hospitals** | Hospital, Doctor Visits, Chemist Visits, Quantity, Sales Amount |
+| **Hospitals** | Hospital, State, Country, Doctor Visits, Chemist Visits, Quantity, Sales Amount |
 | **Products** | Product, Doctors Introduced, Chemist Demand, Quantity, Sales Amount |
 
 Behaviour per tab:
@@ -206,7 +208,8 @@ pagination applies to the list screens described below.
 Log every doctor meeting: who was met, where, when, and which products were introduced.
 
 ### List page features
-- Table columns: Date, Doctor, Hospital, Region, Representative, Products.
+- Table columns: Date, Doctor, Hospital, Region, State, Country, Representative,
+  Products.
 - Products are shown as badges; `—` when none are recorded.
 - Ordered by date descending, then newest first.
 - Paginated at 20 records per page.
@@ -223,7 +226,7 @@ Form fields (`visits/forms.py`):
 | Region | Select | Required; all regions. |
 | Hospital | Select | Required; filtered by the selected region. |
 | Doctor | Select | Required; filtered by the selected hospital. |
-| Products introduced | Multi-select | Optional at the form level; active products only. |
+| Products introduced | Multi-select | Optional at the form level; active products only. Select one or more products introduced during the visit. |
 | Notes | Textarea | Optional; 3 rows. |
 
 - **Dependent dropdowns**: changing Region reloads and resets Hospital and Doctor;
@@ -258,8 +261,10 @@ Log pharmacy/chemist visits: what the pharmacy currently stocks and what it need
 in the context of a doctor's locality.
 
 ### List page features
-- Table columns: Date, Pharmacy, Doctor, Hospital, Representative, Products needed.
+- Table columns: Date, Pharmacy, Doctor, Hospital, Region, State, Country,
+  Representative, Products needed, Qty.
 - Products are shown as badges; `—` when none are recorded.
+- Quantity is the total units requested across the selected products.
 - Ordered by date descending, then newest first.
 - Paginated at 20 records per page.
 - Empty state: "No chemist visits logged yet."
@@ -278,6 +283,7 @@ Form fields (`visits/forms.py`):
 | Pharmacy | Select | Required; filtered by the selected hospital. |
 | Current products | Textarea | Optional; what the pharmacy currently stocks. |
 | Products needed | Multi-select | Optional at the form level; active products only. |
+| Quantity | Number | Total units requested; minimum 1. |
 | Notes | Textarea | Optional; 3 rows. |
 
 - **Dependent dropdowns**: changing Region reloads and resets Hospital, Doctor and
@@ -316,7 +322,7 @@ hidden)
 **Roles**: Admin, Staff, Representative (scoped)
 
 - Table columns: Date, Representative, Product, Qty, Amount, Pharmacy, Hospital,
-  Reference.
+  Region, State, Country, Reference.
 - Quantity and amount are right-aligned; amount is formatted to 2 decimals.
 - Missing reference is shown as `—`.
 - Ordered by sale date descending, then newest first.
@@ -405,7 +411,60 @@ This service is implemented and testable but is not currently surfaced on a page
 
 ---
 
-## 7. Check In/Out
+## 7. Products
+
+**Menu**: Products (Admin only)
+**Routes**:
+- `/products/` (`products:product_list`)
+- `/products/new/` (`products:product_create`)
+- `/products/<id>/edit/` (`products:product_update`)
+- `/products/<id>/delete/` (`products:product_delete`)
+**Roles**: Admin
+**Templates**: `templates/core/product_list.html`, `product_form.html`,
+`product_confirm_delete.html`
+**Views**: `core.product_views.ProductListView`, `ProductCreateView`,
+`ProductUpdateView`, `ProductDeleteView`
+**Form**: `core.forms.ProductForm`
+**Model**: `core.models.Product`
+
+### Purpose
+Maintain the product catalogue used by doctor visits, chemist visits, sales entries and
+targets. Only active products appear in the visit/sales forms.
+
+### 7.1 Product list
+
+- Table columns: Name, SKU, Form, Strength, Status, Actions.
+- Search by name, SKU, form or strength.
+- Filter by active/inactive status.
+- Paginated at 20 records per page.
+- Empty state: "No products found."
+- **New product** opens the create form.
+- Each row has **Edit** and **Delete** actions.
+
+### 7.2 Create and edit
+
+| Field | Type | Notes |
+|-------|------|-------|
+| Name | Text | Required. |
+| SKU | Text | Required; must be unique. |
+| Form | Text | Optional (for example Tablet, Capsule). |
+| Strength | Text | Optional (for example 500mg). |
+| Active | Checkbox | Active products appear in visit/sales forms. |
+
+- Success messages: "Product created." / "Product updated." and redirect to the list.
+- **Back** and **Cancel** return to the list.
+
+### 7.3 Delete
+
+- Confirmation page shows the product name and SKU.
+- Deletes products that are not referenced by sales records.
+- A product referenced by sales is protected: deletion is blocked with an error asking
+  you to mark it inactive instead. This keeps historical sales intact.
+- Success message: "Product deleted." and redirect to the list.
+
+---
+
+## 8. Check In/Out
 
 **Menu**: Check In/Out
 **Routes**:
@@ -421,7 +480,7 @@ This service is implemented and testable but is not currently surfaced on a page
 > **Privacy**: This is a **time-based attendance log only**. No GPS, geolocation,
 > geofencing, route tracking or device location is collected, requested or stored.
 
-### 7.1 Attendance list
+### 8.1 Attendance list
 
 - Table columns: Date, User, Check in, Check out, Duration, Status, Notes.
 - Times are displayed as `H:i`.
@@ -437,7 +496,7 @@ This service is implemented and testable but is not currently surfaced on a page
 - Data scoping: Admin sees all records; Representatives and Staff see only their own
   (`staff_company_wide=False`).
 
-### 7.2 Check in
+### 8.2 Check in
 
 - Fields: Date (defaults to today), Check-in time (defaults to the current local time,
   seconds removed), Notes (optional).
@@ -447,7 +506,7 @@ This service is implemented and testable but is not currently surfaced on a page
 - Success message: "Checked in." and redirect to the attendance list.
 - **Back** and **Cancel** return to the list.
 
-### 7.3 Check out
+### 8.3 Check out
 
 - Fields: Date (defaults to today), Check-out time (defaults to the current local time),
   Notes (optional).
@@ -460,7 +519,7 @@ This service is implemented and testable but is not currently surfaced on a page
 
 ---
 
-## 8. Help
+## 9. Help
 
 **Menu**: Help (main navigation for Admin; user menu for every role)
 **Route**: `/help/` (`help`)
@@ -478,7 +537,7 @@ Displays four quick-guide cards:
 
 ---
 
-## 9. User Menu
+## 10. User Menu
 
 The header user menu is available on every authenticated page. It is opened by the
 avatar/name button and closed by clicking outside it.
@@ -489,7 +548,7 @@ avatar/name button and closed by clicking outside it.
 - **Help** - opens `/help/`.
 - **Logout** - submits a CSRF-protected POST form to `/accounts/logout/`.
 
-### 9.1 Profile
+### 10.1 Profile
 
 **Route**: `/profile/` (`accounts:profile`)
 **Roles**: Any authenticated user
@@ -508,9 +567,9 @@ Features:
 
 ---
 
-## 10. Authentication Screens
+## 11. Authentication Screens
 
-### 10.1 Login
+### 11.1 Login
 
 **Route**: `/accounts/login/` (`login`)
 **Template**: `templates/registration/login.html`
@@ -520,7 +579,7 @@ Features:
 - Supports the `next` redirect parameter.
 - Redirects to the Dashboard on success (`LOGIN_REDIRECT_URL = dashboard:home`).
 
-### 10.2 Logout
+### 11.2 Logout
 
 **Route**: `/accounts/logout/` (`logout`), POST only from the user menu.
 
@@ -530,18 +589,19 @@ Features:
 
 ---
 
-## 11. Master Data, Admin and CMS
+## 12. Master Data, Admin and CMS
 
 These screens are not part of the role-based main navigation but are part of the
 application.
 
-### 11.1 Django admin
+### 12.1 Django admin
 
 **Route**: `/django-admin/`
 **Access**: Django staff/superuser accounts.
 
 Registered models and features:
-- **Region** - list name/code, search.
+- **Region** - list name/code/state/country, filter by state/country, search. Seeded
+  regions use the 14 districts of Kerala with state `Kerala` and country `India`.
 - **Hospital** - list name/region/city, filter by region, search.
 - **Doctor** - list name/hospital/speciality, filter by hospital, search.
 - **Pharmacy** - list name/region/hospital/locality, filter by region, search.
@@ -550,14 +610,14 @@ Registered models and features:
 - **UserProfile** - list user/role/employee code/region, filter by role/region, search.
 - **DoctorVisit** - list rep/date/doctor/hospital/region, date/region/hospital filters,
   horizontal product picker.
-- **ChemistVisit** - list rep/date/pharmacy/doctor/hospital/region, filters, horizontal
-  product picker.
-- **SalesLog** - list rep/date/product/quantity/amount/pharmacy/entered_by, date/region/
-  product filters, search, date drill-down.
+- **ChemistVisit** - list rep/date/pharmacy/doctor/hospital/region/quantity, filters,
+  horizontal product picker.
+- **SalesLog** - list rep/date/product/quantity/amount/pharmacy/region/entered_by,
+  date/region/product filters, search, date drill-down.
 - **Target** - list rep/period/dates/product/targets, period/date filters, search.
 - **CheckInOut** - list user/date/times, date filter, search, date drill-down.
 
-### 11.2 DB profiling
+### 12.2 DB profiling
 
 **Routes**:
 - `/django-admin/db-profiling/` (`admin_db_profiling`; also mounted under the Region
@@ -586,7 +646,7 @@ Features:
 - Success and error feedback appears as Django admin messages.
 - CLI equivalent: `python manage.py seed_table <app.Model> --rows <n>`.
 
-### 11.3 Wagtail CMS
+### 12.3 Wagtail CMS
 
 **Route**: `/cms/` (Wagtail admin)
 **Access**: Wagtail permissions.
@@ -599,7 +659,7 @@ Features:
 
 ---
 
-## 12. Cross-Cutting Features
+## 13. Cross-Cutting Features
 
 ### Layout and navigation
 - Two-row application shell: utility/header row with brand and user menu; module
@@ -633,27 +693,35 @@ Shared `templates/partials/form_fields.html`:
 ### Messages
 Django messages render as dismissible Bootstrap alerts after create actions.
 
+### Locations
+- `Region` stores the district/region name plus `state` and `country` (defaults
+  `Kerala` and `India`).
+- Region labels show `Name (State, Country)` in forms and admin foreign-key fields.
+- State and country appear in doctor-visit, chemist-visit and sales lists, the dashboard
+  hospital breakdown, and the Hospitals report.
+
 ### Data integrity
 - Shared timestamps from `core.models.TimeStampedModel`.
 - Foreign-key protection keeps historical records intact (`PROTECT` on masters).
+- Products referenced by sales cannot be deleted; mark them inactive instead.
 - Unique constraints for sales references, targets and daily attendance.
 - Indexes on the fields used by lists, filters and dashboards.
 
 ---
 
-## 13. Operational Features (not menu screens)
+## 14. Operational Features (not menu screens)
 
 | Feature | Command / Route | Purpose |
 |---------|-----------------|---------|
 | Health check | `/health/` | JSON report of database connectivity and applied migrations; returns `200` when healthy and `503` with `"migrations": "missing"` otherwise. |
-| Seed demo data | `python manage.py seed_demo` | Creates demo users (`admin`, `rep`, `staff` / `password123`), masters, visits, a sale, a target and a check-in. |
-| Seed a table | `python manage.py seed_table <app.Model> --rows <n>` | Creates Faker-based sample rows for a supported project model (1-1000 rows). |
+| Seed demo data | `python manage.py seed_demo` | Creates demo users (`admin`, `rep`, `staff` / `password123`), masters, visits, a sale, a target and a check-in. Regions use Kerala districts with state/country. |
+| Seed a table | `python manage.py seed_table <app.Model> --rows <n>` | Creates Faker-based sample rows for a supported project model (1-1000 rows). Region rows are the 14 Kerala districts, each with state `Kerala` and country `India`. |
 | Ensure superuser | `python manage.py ensure_superuser` | Creates/updates a deployment admin from `DJANGO_SUPERUSER_*` environment variables and sets the `admin` role. |
 | Filter options API | `/visits/filter-options/` | JSON endpoint used by the dependent dropdowns. Accepts `type=hospital&region=<id>`, `type=doctor&hospital=<id>` or `type=pharmacy&hospital=<id>`. |
 
 ---
 
-## 14. Feature-to-Code Map
+## 15. Feature-to-Code Map
 
 | Feature | App / module | Key files |
 |---------|--------------|-----------|
@@ -664,6 +732,7 @@ Django messages render as dismissible Bootstrap alerts after create actions.
 | Meet Chemist | `visits` | `models.ChemistVisit`, `views.py`, `forms.py`, `services.py`, `receivers.py` |
 | Sales | `sales` | `models.SalesLog`, `views.py`, `forms.py`, `services.py`, `receivers.py` |
 | Targets | `sales` | `models.Target`, `views.py`, `forms.py`, `services.target_attainment` |
+| Products | `core` | `models.Product`, `product_views.py`, `forms.ProductForm`, `core/urls.py`, `templates/core/product_*.html` |
 | Check In/Out | `checkin` | `models.CheckInOut`, `views.py`, `forms.py`, `services.py` |
 | Help | `config` / `templates` | `config/urls.py`, `templates/help.html` |
 | Profile | `accounts` | `models.UserProfile`, `views.ProfileView`, `forms.ProfileForm` |
@@ -677,7 +746,7 @@ Django messages render as dismissible Bootstrap alerts after create actions.
 
 ---
 
-## 15. Known Gaps
+## 16. Known Gaps
 
 The following behaviours are specified in `docs/field-activity.md` but are not fully
 implemented in the current UI. They are documented here so the docs match the code.

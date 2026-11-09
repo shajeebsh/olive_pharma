@@ -7,8 +7,9 @@ from .models import AuditLog, Doctor, Hospital, Pharmacy, Product, Region
 
 @admin.register(Region)
 class RegionAdmin(admin.ModelAdmin):
-    list_display = ("name", "code")
-    search_fields = ("name", "code")
+    list_display = ("name", "code", "state", "country")
+    list_filter = ("state", "country")
+    search_fields = ("name", "code", "state", "country")
 
     def get_urls(self):
         urls = super().get_urls()

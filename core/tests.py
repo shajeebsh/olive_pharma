@@ -9,9 +9,10 @@ from django.urls import reverse
 
 from accounts.models import ROLE_ADMIN, ROLE_REP, ROLE_STAFF
 from core.bootstrap import run_startup_tasks, startup_tasks_enabled
-from core.models import Doctor, Hospital, Region
+from core.models import Doctor, Hospital, Pharmacy, Product, Region
 from core.services.profiling import get_table_stats
-from core.services.seeding import seed_rows
+from core.services.seeding import KERALA_DISTRICTS, seed_rows
+from sales.models import SalesLog
 from visits.models import DoctorVisit
 
 
@@ -101,6 +102,112 @@ class ProfilingTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertGreaterEqual(Region.objects.count(), 1)
+
+
+class SeedingTests(TestCase):
+    def test_region_seed_uses_kerala_districts(self):
+        created = seed_rows("core.Region", 2)
+        self.assertEqual(created, 2)
+        regions = Region.objects.all()
+        for region in regions:
+            self.assertIn(region.name, KERALA_DISTRICTS)
+            self.assertEqual(region.state, "Kerala")
+            self.assertEqual(region.country, "India")
+            self.assertIn("Kerala", str(region))
+            self.assertIn("India", str(region))
+
+    def test_region_seed_does_not_duplicate_districts(self):
+        seed_rows("core.Region", len(KERALA_DISTRICTS))
+        created = seed_rows("core.Region", 3)
+        self.assertEqual(created, 0)
+        self.assertEqual(Region.objects.count(), len(KERALA_DISTRICTS))
+
+
+class ProductManagementTests(TestCase):
+    def setUp(self):
+        self.admin = make_user("admin", ROLE_ADMIN)
+        self.staff = make_user("staff", ROLE_STAFF)
+        self.rep = make_user("rep", ROLE_REP)
+        self.product = Product.objects.create(
+            name="Cardiolex", sku="CARD-10", form="Tablet", strength="10mg"
+        )
+
+    def test_non_admin_cannot_manage_products(self):
+        for user in (self.staff, self.rep):
+            self.client.force_login(user)
+            self.assertEqual(
+                self.client.get(reverse("products:product_list")).status_code, 403
+            )
+
+    def test_admin_can_list_products(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("products:product_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Cardiolex")
+
+    def test_admin_can_create_product(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("products:product_create"),
+            {
+                "name": "Glucobal",
+                "sku": "GLU-500",
+                "form": "Tablet",
+                "strength": "500mg",
+                "active": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Product.objects.filter(sku="GLU-500").exists())
+
+    def test_admin_can_update_product(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("products:product_update", args=[self.product.pk]),
+            {
+                "name": "Cardiolex Plus",
+                "sku": "CARD-10",
+                "form": "Tablet",
+                "strength": "20mg",
+                "active": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.name, "Cardiolex Plus")
+        self.assertEqual(self.product.strength, "20mg")
+
+    def test_admin_can_delete_unused_product(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("products:product_delete", args=[self.product.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Product.objects.filter(pk=self.product.pk).exists())
+
+    def test_delete_is_blocked_for_product_used_in_sales(self):
+        region = Region.objects.create(name="Ernakulam")
+        hospital = Hospital.objects.create(name="City", region=region)
+        doctor = Doctor.objects.create(name="Chen", hospital=hospital)
+        pharmacy = Pharmacy.objects.create(name="Olive", region=region)
+        SalesLog.objects.create(
+            rep=self.rep,
+            entered_by=self.admin,
+            sales_date="2026-01-10",
+            region=region,
+            hospital=hospital,
+            doctor=doctor,
+            pharmacy=pharmacy,
+            product=self.product,
+            quantity=1,
+            amount=1,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("products:product_delete", args=[self.product.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Product.objects.filter(pk=self.product.pk).exists())
 
 
 class HealthTests(TestCase):

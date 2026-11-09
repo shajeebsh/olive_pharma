@@ -14,11 +14,43 @@ from sales.models import SalesLog, Target
 from visits.models import ChemistVisit, DoctorVisit
 
 PRODUCT_FORMS = ("Tablet", "Capsule", "Syrup", "Injection")
+KERALA_STATE = "Kerala"
+COUNTRY = "India"
+KERALA_DISTRICTS = (
+    "Thiruvananthapuram",
+    "Kollam",
+    "Pathanamthitta",
+    "Alappuzha",
+    "Kottayam",
+    "Idukki",
+    "Ernakulam",
+    "Thrissur",
+    "Palakkad",
+    "Malappuram",
+    "Kozhikode",
+    "Wayanad",
+    "Kannur",
+    "Kasaragod",
+)
 
 
 def _unique(prefix=""):
     value = uuid.uuid4().hex[:10].upper()
     return f"{prefix}{value}" if prefix else value
+
+
+def _create_region(fake):
+    existing = set(Region.objects.values_list("name", flat=True))
+    available = [name for name in KERALA_DISTRICTS if name not in existing]
+    if not available:
+        return None
+    name = fake.random_element(available)
+    return Region.objects.create(
+        name=name,
+        code=name[:3].upper(),
+        state=KERALA_STATE,
+        country=COUNTRY,
+    )
 
 
 def _get_user(fake):
@@ -37,9 +69,7 @@ def _get_region(fake):
     region = Region.objects.order_by("?").first()
     if region is not None:
         return region
-    return Region.objects.create(
-        name=f"{fake.city()} {_unique()}", code=fake.lexify("??").upper()
-    )
+    return _create_region(fake)
 
 
 def _get_hospital(fake, region=None):
@@ -104,10 +134,7 @@ def _get_product(fake):
 
 
 def seed_region(fake):
-    Region.objects.create(
-        name=f"{fake.city()} {_unique()}", code=fake.lexify("??").upper()
-    )
-    return True
+    return _create_region(fake) is not None
 
 
 def seed_hospital(fake):
@@ -196,6 +223,7 @@ def seed_chemist_visit(fake):
         doctor=_get_doctor(fake, hospital),
         pharmacy=_get_pharmacy(fake, region, hospital),
         current_products=fake.sentence(),
+        quantity=fake.random_int(1, 100),
         notes=fake.sentence(),
     )
     products = list(Product.objects.order_by("?")[: fake.random_int(1, 3)])

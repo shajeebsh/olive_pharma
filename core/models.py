@@ -35,12 +35,17 @@ class AuditLog(models.Model):
 class Region(TimeStampedModel):
     name = models.CharField(max_length=120, unique=True)
     code = models.CharField(max_length=20, blank=True)
+    state = models.CharField(max_length=120, default="Kerala")
+    country = models.CharField(max_length=120, default="India")
 
     class Meta:
         ordering = ["name"]
 
     def __str__(self):
-        return self.name
+        location = ", ".join(
+            part for part in (self.state, self.country) if part
+        )
+        return f"{self.name} ({location})" if location else self.name
 
 
 class Hospital(TimeStampedModel):

@@ -13,7 +13,15 @@ class DoctorVisitAdmin(admin.ModelAdmin):
 
 @admin.register(ChemistVisit)
 class ChemistVisitAdmin(admin.ModelAdmin):
-    list_display = ("rep", "date", "pharmacy", "doctor", "hospital", "region")
+    list_display = (
+        "rep",
+        "date",
+        "pharmacy",
+        "doctor",
+        "hospital",
+        "region",
+        "quantity",
+    )
     list_filter = ("date", "region", "hospital")
     search_fields = ("rep__username", "pharmacy__name", "doctor__name")
     filter_horizontal = ("products_needed",)

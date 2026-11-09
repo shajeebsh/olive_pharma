@@ -98,6 +98,8 @@
                     <thead>
                         <tr>
                             <th>Hospital</th>
+                            <th>State</th>
+                            <th>Country</th>
                             <th class="text-end">Doctors</th>
                             <th class="text-end">Chemists</th>
                             <th class="text-end">Sales</th>
@@ -107,12 +109,14 @@
                         {% for row in hospital_rows %}
                         <tr>
                             <td>{{ row.hospital }}</td>
+                            <td>{{ row.state }}</td>
+                            <td>{{ row.country }}</td>
                             <td class="text-end">{{ row.doctor_visits }}</td>
                             <td class="text-end">{{ row.chemist_visits }}</td>
                             <td class="text-end">{{ row.sales_amount|floatformat:2 }}</td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="4" class="empty-state">No activity in this period.</td></tr>
+                        <tr><td colspan="6" class="empty-state">No activity in this period.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
