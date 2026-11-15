@@ -13,6 +13,7 @@ under 100 users.
 - [📍 Field Activity Feature](docs/field-activity.md)
 - [🧪 Testing & QA](docs/testing.md)
 - [📡 REST API Documentation](docs/api.md)
+- [📱 Flutter Rep App](mobile/README.md)
 - [📝 AI Context Documentation](docs/ai_context.md)
 - [🗺️ Build Plan](docs/plan.md)
 
@@ -36,6 +37,15 @@ representative-wise, and hospital-wise dashboards and reports with CSV exports.
 - **Dashboard**: KPI cards, filters, monthly/representative/hospital/product reports,
   Chart.js visualisations, and CSV export
 - **CMS**: optional Wagtail pages at `/cms/`
+
+### REST API & Mobile App
+
+- **API** (`api/`): JWT-authenticated DRF endpoints for doctor/chemist visits, sales,
+  attendance, profile, dependent filter options, masters, and dashboard KPIs. Reuses the
+  web app's service layer, scoped managers, future-date validation, and pagination.
+- **Mobile** (`mobile/`): Flutter (Material 3) representative app — dashboard KPIs,
+  meet doctor/chemist, read-only sales, time-only check-in/out, and profile. See
+  [mobile/README.md](mobile/README.md).
 
 ### Roles
 

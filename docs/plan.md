@@ -35,7 +35,7 @@ dashboards and reports.
 - Multi-tenant / multi-organisation support
 - Invoicing/accounting integration (sales are entered manually)
 - GPS or location capture
-- Native iOS/Android app (a responsive web app is sufficient for now)
+- Native app store release pipeline (a Flutter APK is built in CI for internal use)
 
 ---
 
@@ -135,15 +135,17 @@ for a rep and period. ✅
 
 ---
 
-### Phase 7 - REST API (Optional Mobile)
+### Phase 7 - REST API & Flutter App ✅
 
-- [ ] Add DRF serializers and viewsets for masters, visits, sales, attendance
-- [ ] Token authentication
-- [ ] Check-in/check-out endpoints (time-only, idempotent where offline sync is needed)
-- [ ] Object-level permissions: representatives/staff only touch their own records
-- [ ] Browsable API at `/api/` and schema/docs
+- [x] Add DRF serializers and viewsets for masters, visits, sales, attendance
+- [x] JWT authentication (`djangorestframework-simplejwt`)
+- [x] Check-in/check-out endpoints (time-only; one per day)
+- [x] Object-level permissions: representatives only touch their own records
+- [x] Paginated lists, dependent filter options, and dashboard KPIs
+- [x] Flutter (Material 3) representative app in `mobile/`
+- [x] `mobile-ci.yml`: release APK on tag → GitHub Release
 
-**Done when**: A user can check in and sync activity through the API.
+**Done when**: A representative can log activity and check in/out through the app. ✅
 
 ---
 
@@ -169,7 +171,7 @@ for a rep and period. ✅
 - [x] M4 - Meet Doctor, Meet Chemist, check-in/out
 - [x] M5 - Manual sales entry and targets
 - [x] M6 - Reports and dashboards
-- [ ] M7 - REST API for mobile (optional)
+- [x] M7 - REST API and Flutter app
 - [ ] M8 - Hardening and production deploy (Render configured; runbook pending)
 
 ---
@@ -206,13 +208,13 @@ for a rep and period. ✅
 - [x] `docs/field-activity.md` - daily field activity feature specification
 - [x] `docs/setup.md` - setup, configuration, and Render deployment
 - [x] `docs/testing.md` - testing and QA
-- [x] `docs/api.md` - REST API notes (optional future work)
+- [x] `docs/api.md` - REST API documentation
 - [x] `README.md` - project overview and quick links
 
 ---
 
 ## 7. Next Action
 
-Optionally add the DRF API (Phase 7) for a mobile client, then complete the Phase 8
-runbook (backups, restore drill, deployment checklist). Re-run `manage.py check`,
-`manage.py test`, and `collectstatic` before each deploy.
+Complete the Phase 8 runbook (backups, restore drill, deployment checklist) and, if
+needed, an app-store release pipeline. Re-run `manage.py check`, `manage.py test`,
+`flutter analyze`, and `collectstatic` before each deploy.

@@ -6,6 +6,7 @@ database by DATABASE_URL (dj-database-url). The same code runs locally on
 SQLite and on Render with managed PostgreSQL.
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -35,6 +36,7 @@ INSTALLED_APPS = [
     "sales",
     "checkin",
     "dashboard",
+    "api",
     "cms",
     # Wagtail
     "wagtail.contrib.forms",
@@ -58,6 +60,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.humanize",
+    # REST API (Flutter representative app)
+    "rest_framework",
+    "rest_framework_simplejwt",
 ]
 
 # ── Middleware ────────────────────────────────────────────────────────────────
@@ -114,6 +119,38 @@ AUTH_PASSWORD_VALIDATORS = [
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard:home"
 LOGOUT_REDIRECT_URL = "login"
+
+# ── REST API (DRF + JWT for the Flutter representative app) ───────────────────
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+    "DEFAULT_PAGINATION_CLASS": "api.pagination.StandardPagination",
+    "PAGE_SIZE": 20,
+    "DEFAULT_FILTER_BACKENDS": (
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ),
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=config("JWT_ACCESS_MINUTES", default=60, cast=int)
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=config("JWT_REFRESH_DAYS", default=14, cast=int)
+    ),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+}
 
 # ── I18N ──────────────────────────────────────────────────────────────────────
 LANGUAGE_CODE = "en-us"
