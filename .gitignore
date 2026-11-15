@@ -222,3 +222,29 @@ __marimo__/
 # OlivePharma
 staticfiles/
 media/
+
+# Flutter rep app (mobile/)
+mobile/.dart_tool/
+mobile/.packages
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/build/
+mobile/**/build/
+mobile/.gradle/
+mobile/**/.gradle/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/key.properties
+mobile/.idea/
+*.apk
+*.ipa
+*.aab
+
+# The Python section above ignores every lib/ directory; re-include Flutter's.
+!mobile/lib/
+!mobile/lib/**
+

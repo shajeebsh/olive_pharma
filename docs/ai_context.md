@@ -1,8 +1,8 @@
 # OlivePharma - Project Context Documentation
 
 > **Last Updated**: November 2026
-> **Status**: Implementation complete for Phases 0-6 (foundation, roles, masters,
-> field activity, sales/targets, dashboards/reports). Optional API and hardening next.
+> **Status**: Web app (Phases 0-6), JWT REST API, and the Flutter representative app are
+> implemented. Optional API and hardening next.
 > **Maintained by**: Development Team
 
 > **Current state**: The Django application is implemented and runnable. Documentation
@@ -46,6 +46,8 @@ with monthly, representative-wise, and hospital-wise reporting.
 | Config | python-decouple | 3.8+ |
 | Sample data | Faker (admin seeding tool) | 25+ |
 | Frontend | Django Templates, Bootstrap 5.3, Chart.js | — |
+| Mobile app | Flutter (Material 3), Riverpod, dio, fl_chart | 3.x |
+| API | Django REST Framework + SimpleJWT | 3.15 / 5.3 |
 | Icons / Font | Bootstrap Icons, Inter (Google Fonts) | — |
 | Authentication | Django Auth (session-based) | — |
 | App server | Gunicorn + WhiteNoise | 21+ / 6.6+ |
@@ -56,12 +58,12 @@ with monthly, representative-wise, and hospital-wise reporting.
 
 | Omitted | Why |
 |---------|-----|
-| Django REST Framework / API | The responsive web app covers the field workflow; the API remains optional future work |
 | Celery + Redis | Workload is small; synchronous exports are sufficient |
 | OpenAI integration | No AI features in the MVP |
 | Multi-tenancy | Single organisation, under 100 users |
 | Microservices | Modular monolith is simpler and sufficient |
 | HTMX / SPA framework | Server-rendered tabs and forms are sufficient at this scale |
+| Offline sync / push in the app | The Flutter app is online-first; sync/push are out of scope |
 
 Wagtail **is** included, but only for optional CMS pages under `/cms/`; it is not part of
 the core field workflow. If any omission becomes necessary, record the decision in
@@ -116,7 +118,27 @@ olive_pharma/
 ├── checkin/                  # CheckInOut, check-in/out services and views
 ├── dashboard/                # KPIs, filters, reports, charts, CSV export
 │   └── templatetags/         # get_item filter for report rows
+├── api/                      # DRF + JWT endpoints for the Flutter rep app
+│   ├── serializers.py        # Masters, visits, sales, check-in, profile
+│   ├── permissions.py        # IsRepresentativeOrAdmin, ReadOnly
+│   ├── pagination.py         # StandardPagination (page/page_size)
+│   ├── views.py              # List/create views, dashboard, filter options
+│   ├── urls.py               # Routes under /api/
+│   └── tests.py              # Endpoint + permission tests
 ├── cms/                      # Optional Wagtail pages + snippet
+│
+├── mobile/                   # Flutter (Material 3) representative app
+│   ├── pubspec.yaml          # dio, Riverpod, secure_storage, fl_chart, intl
+│   ├── lib/
+│   │   ├── main.dart/app.dart        # ProviderScope + auth-gated root
+│   │   ├── core/             # api client, JWT interceptor, storage, theme, widgets
+│   │   ├── models/           # JSON models
+│   │   ├── repositories/     # One per API area
+│   │   ├── providers/        # Riverpod providers
+│   │   └── features/         # auth, dashboard, visits, sales, attendance, profile
+│   └── README.md             # Run/build/CI notes
+├── .github/workflows/
+│   └── mobile-ci.yml         # Analyze on PR; APK build on tag → GitHub Release
 │
 ├── static/
 │   ├── css/theme.css         # "Trusted Innovator" design tokens + components
@@ -162,6 +184,18 @@ olive_pharma/
 | `/sales/` | sales | Sales list/create (`list`, `create`) |
 | `/sales/targets/` | sales | Targets list/create (`target_list`, `target_create`) |
 | `/checkin/` | checkin | Attendance list + check in/out (`list`, `check_in`, `check_out`) |
+| `/api/auth/login/` | api | JWT login (`api:login`) |
+| `/api/auth/refresh/` | api | Refresh access token (`api:token_refresh`) |
+| `/api/profile/` | api | Get/update own profile (`api:profile`) |
+| `/api/dashboard/` | api | Own KPI cards + recent visits (`api:dashboard`) |
+| `/api/filter-options/` | api | Dependent dropdown JSON (`api:filter_options`) |
+| `/api/doctor-visits/` | api | List/create doctor visits (`api:doctor_visits`) |
+| `/api/chemist-visits/` | api | List/create chemist visits (`api:chemist_visits`) |
+| `/api/sales/` | api | Read-only own sales (`api:sales`) |
+| `/api/checkins/` | api | Attendance list (`api:checkins`) |
+| `/api/checkins/check-in/` | api | Check in (`api:check_in`) |
+| `/api/checkins/check-out/` | api | Check out (`api:check_out`) |
+| `/api/masters/*` | api | Regions, hospitals, doctors, pharmacies, products |
 | `/health/` | core | Health check JSON |
 | `/help/` | core | Help page |
 | `/` (fallback) | wagtail | Optional CMS page serving |
@@ -264,6 +298,19 @@ olive_pharma/
 | Danger | Terracotta | `#c2412c` |
 | Warning | Amber | `#f59e0b` |
 
+### 4.10 REST API & Flutter Representative App
+- `api/` exposes JWT-authenticated DRF endpoints under `/api/` for auth, profile,
+  dashboard KPIs, dependent filter options, doctor/chemist visits, read-only sales,
+  attendance (list/check-in/check-out), and masters.
+- Write endpoints delegate to the `visits`/`checkin` service layer, so signals, audit
+  logging, future-date validation (admin-exempt), and duplicate-check-in rules are shared
+  with the web app. Lists use `ScopedManager.for_user` and `StandardPagination`.
+- `mobile/` is a Flutter Material 3 app: bottom nav (Dashboard, Visits, Sales,
+  Attendance, Profile), secure JWT storage, a dio interceptor with single-shot refresh and
+  auto-logout on `401`, Riverpod state, pull-to-refresh, and loading/empty/error states.
+- CI (`.github/workflows/mobile-ci.yml`) runs `flutter analyze` on PRs and builds a release
+  APK on `v*` tags, attaching it to a GitHub Release.
+
 ---
 
 ## 5. Conventions
@@ -329,7 +376,7 @@ olive_pharma/
 | D4 | SQLite for dev, PostgreSQL for production | Zero-setup dev; managed Postgres on Render via `DATABASE_URL` |
 | D5 | Wagtail included for optional CMS pages only | Content pages may be useful; core workflow does not depend on it |
 | D6 | No Celery/Redis in MVP | Exports and dashboards are synchronous at this scale |
-| D7 | No DRF API in current build | The responsive web app covers the field workflow; API is optional future work |
+| D7 | JWT REST API (DRF + SimpleJWT) for the Flutter app | Reps work in the field; the API reuses the web service layer so rules stay in one place |
 | D8 | Role-based access (Admin, Representative, Staff) | Matches the operational roles; enforced server-side |
 | D9 | Check-in/out is a time-based log only (no GPS) | Spec requires time logs, not location; avoids privacy complexity |
 | D10 | `TimeStampedModel` for shared timestamps | Consistency across all domain models |
@@ -406,7 +453,8 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
   role access, and known gaps
 - [Setup and Installation](setup.md) - Local setup and Render deployment
 - [Testing and QA](testing.md) - Automated and manual testing
-- [REST API Documentation](api.md) - Optional future API notes
+- [REST API Documentation](api.md) - Implemented JWT API endpoints and rules
+- [Flutter Rep App](mobile/README.md) - Mobile client setup, structure, and CI
 - `static/css/theme.css` - Design tokens and component styles
 - `templates/base.html` - Two-row shell layout
 
@@ -423,6 +471,28 @@ Demo logins after `seed_demo`: `admin`, `rep`, `staff` / `password123`.
 ---
 
 ## 11. Change Log
+
+### November 2026 - JWT REST API and Flutter Rep App
+- Added `api/` (Django REST Framework + SimpleJWT): JWT login/refresh, profile get/update,
+  dashboard KPIs (own data, current-month default), dependent filter options, doctor and
+  chemist visit list/create, read-only sales list, attendance list and check-in/check-out,
+  and master lists. Reuses the existing service layer, `ScopedManager` scoping,
+  future-date validation, and adds `StandardPagination`.
+- Registered `rest_framework`, `rest_framework_simplejwt`, and `api` in settings; added
+  `REST_FRAMEWORK` and `SIMPLE_JWT` config; mounted routes at `/api/`.
+- Added `djangorestframework`, `djangorestframework-simplejwt`, and `django-filter` to
+  `requirements.txt`.
+- Added `api/tests.py` (25 tests): auth, profile, scoped lists, future-date rules, role
+  gating, check-in/out transitions, filter options, masters, and dashboard KPIs.
+- Added the `mobile/` Flutter app (Material 3, Riverpod, dio, flutter_secure_storage,
+  fl_chart): auth with auto-logout on 401, dashboard with 4 KPI cards + recent 5 visits,
+  Meet Doctor/Meet Chemist list + create forms with dependent dropdowns and product
+  multi-select, read-only sales, attendance with time-only check-in/out, and profile
+  view/edit.
+- Added `.github/workflows/mobile-ci.yml` (analyze on PR; release APK on `v*` tag →
+  GitHub Release) and Flutter build artifacts to `.gitignore` (`build/`, `.gradle/`,
+  `ios/Pods/`, `*.apk`, `*.ipa`).
+- Updated `README.md`, `docs/api.md`, `docs/plan.md`, and `mobile/README.md`.
 
 ### November 2026 - Products, Kerala Regions, State/Country, Visit Quantities
 - Added `Region.state` and `Region.country` (defaults `Kerala` / `India`) and updated

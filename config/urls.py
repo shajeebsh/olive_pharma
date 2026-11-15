@@ -35,6 +35,7 @@ urlpatterns = [
     path("visits/", include("visits.urls")),
     path("sales/", include("sales.urls")),
     path("checkin/", include("checkin.urls")),
+    path("api/", include("api.urls")),
     path("", include("dashboard.urls")),
     path("", include(wagtail_urls)),
 ]
